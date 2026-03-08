@@ -46,7 +46,7 @@ Rules:
     })
   });
   const data = await response.json();
-  const raw = data.content.map(i => i.text || "").join("");
+  const raw = (data.content || []).map(i => i.text || "").join("");
   const clean = raw.replace(/```json|```/g, "").trim();
   return JSON.parse(clean);
 }
