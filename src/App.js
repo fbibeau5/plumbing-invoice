@@ -36,7 +36,7 @@ Rules:
 - Be generous with matching - "coude 90" matches any Coude 90 variant
 - For ambiguous matches, pick the most common/basic version`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("/api/parse", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
