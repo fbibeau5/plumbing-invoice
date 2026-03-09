@@ -157,7 +157,7 @@ export default function App() {
   };
 
   const updateQty = (id, val) => {
-    setInvoiceItems(prev => prev.map(i => i.id === id ? { ...i, qty: Math.max(0, parseInt(val) || 0) } : i));
+    setInvoiceItems(prev => prev.map(i => i.id === id ? { ...i, qty: Math.max(0, parseFloat(val) || 0) } : i));
   };
 
   const removeItem = (id) => setInvoiceItems(prev => prev.filter(i => i.id !== id));
@@ -390,8 +390,10 @@ export default function App() {
                             type="number"
                             value={item.qty}
                             onChange={e => updateQty(item.id, e.target.value)}
+                            step="0.25"
+                            min="0"
                             style={{
-                              width: 60, background: C.inputBg, border: `1px solid ${C.border}`,
+                              width: 70, background: C.inputBg, border: `1px solid ${C.border}`,
                               borderRadius: 5, padding: "4px 8px", color: C.text,
                               fontFamily: "inherit", fontSize: 13, textAlign: "center", outline: "none"
                             }}
