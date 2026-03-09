@@ -76,6 +76,39 @@ Alimentation eau:
 - 2x T UPONOR 1/2
 - 3x bague UPONOR demi`;
 
+const THEMES = {
+  dark: {
+    name: "🌑 Sombre",
+    bg: "#0f0f0f", header: "#1a1a1a", card: "#1a1a1a", border: "#2a2a2a",
+    accent: "#e85d26", text: "#e8e8e8", textMuted: "#888", textLight: "#555",
+    inputBg: "#0f0f0f", rowAlt: "#141414", rowBorder: "#1f1f1f",
+  },
+  light: {
+    name: "☀️ Clair",
+    bg: "#f5f5f5", header: "#ffffff", card: "#ffffff", border: "#e0e0e0",
+    accent: "#e85d26", text: "#1a1a1a", textMuted: "#555", textLight: "#999",
+    inputBg: "#fafafa", rowAlt: "#fafafa", rowBorder: "#eeeeee",
+  },
+  blue: {
+    name: "🔵 Bleu",
+    bg: "#ddeeff", header: "#1a3a5c", card: "#ffffff", border: "#b0cfe8",
+    accent: "#1a6bb5", text: "#1a2a3a", textMuted: "#4a6a8a", textLight: "#7a9ab5",
+    inputBg: "#f0f7ff", rowAlt: "#f5faff", rowBorder: "#e0eef8",
+  },
+  green: {
+    name: "🟢 Vert",
+    bg: "#e8f5e9", header: "#1b5e20", card: "#ffffff", border: "#a5d6a7",
+    accent: "#2e7d32", text: "#1b2e1c", textMuted: "#4a7a4e", textLight: "#7aaa7e",
+    inputBg: "#f1f8f1", rowAlt: "#f5fbf5", rowBorder: "#dceedd",
+  },
+  navy: {
+    name: "🌊 Marine",
+    bg: "#1a2340", header: "#0f1628", card: "#1e2a4a", border: "#2d3d6a",
+    accent: "#4a90d9", text: "#e8eeff", textMuted: "#8899cc", textLight: "#556699",
+    inputBg: "#151e38", rowAlt: "#1c2642", rowBorder: "#253357",
+  },
+};
+
 export default function App() {
   const [tab, setTab] = useState("parse");
   const [notesText, setNotesText] = useState(SAMPLE_NOTES);
@@ -87,6 +120,8 @@ export default function App() {
   const [invoiceNum, setInvoiceNum] = useState("001");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCat, setSelectedCat] = useState("ALL");
+  const [themeName, setThemeName] = useState("blue");
+  const [showThemes, setShowThemes] = useState(false);
 
   const subtotal = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const tps = subtotal * TPS;
@@ -155,46 +190,73 @@ export default function App() {
     w.print();
   };
 
+  const C = THEMES[themeName] || THEMES.blue;
+
   return (
-    <div style={{ minHeight: "100vh", background: "#0f0f0f", fontFamily: "'Courier New', monospace", color: "#e8e8e8" }}>
+    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "system-ui, -apple-system, sans-serif", color: C.text }}>
       {/* Header */}
-      <div style={{ background: "#1a1a1a", borderBottom: "1px solid #2a2a2a", padding: "0 24px" }}>
+      <div style={{ background: C.header, padding: "0 24px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 36, height: 36, background: "#e85d26", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🔧</div>
+            <div style={{ width: 36, height: 36, background: C.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🔧</div>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: 1 }}>PLUMB<span style={{ color: "#e85d26" }}>INVOICE</span></div>
-              <div style={{ fontSize: 10, color: "#666", letterSpacing: 2 }}>SYSTÈME DE FACTURATION</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "white", letterSpacing: 0.5 }}>Plomb<span style={{ color: C.accent }}>Invoice</span></div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", letterSpacing: 2 }}>SYSTÈME DE FACTURATION</div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 4 }}>
-            {[["parse", "📋 NOTES"], ["invoice", `🧾 FACTURE (${invoiceItems.length})`], ["catalog", "📦 CATALOGUE"]].map(([id, label]) => (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {[["parse", "📋 Notes"], ["invoice", `🧾 Facture (${invoiceItems.length})`], ["catalog", "📦 Catalogue"]].map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} style={{
-                padding: "8px 16px", background: tab === id ? "#e85d26" : "transparent",
-                border: `1px solid ${tab === id ? "#e85d26" : "#333"}`,
-                borderRadius: 4, color: tab === id ? "white" : "#888",
-                cursor: "pointer", fontSize: 11, letterSpacing: 1, fontFamily: "inherit"
+                padding: "8px 18px", background: tab === id ? C.accent : "rgba(255,255,255,0.1)",
+                border: `1px solid ${tab === id ? C.accent : "rgba(255,255,255,0.2)"}`,
+                borderRadius: 6, color: "white",
+                cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: tab === id ? 600 : 400
               }}>{label}</button>
             ))}
+            <div style={{ position: "relative", marginLeft: 8 }}>
+              <button onClick={() => setShowThemes(p => !p)} style={{
+                padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
+                borderRadius: 6, color: "white", cursor: "pointer", fontSize: 16, fontFamily: "inherit"
+              }}>🎨</button>
+              {showThemes && (
+                <div style={{
+                  position: "absolute", right: 0, top: 44, background: C.card, border: `1px solid ${C.border}`,
+                  borderRadius: 8, padding: 8, zIndex: 100, minWidth: 140,
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.15)"
+                }}>
+                  {Object.entries(THEMES).map(([key, t]) => (
+                    <button key={key} onClick={() => { setThemeName(key); setShowThemes(false); }} style={{
+                      display: "block", width: "100%", padding: "8px 12px",
+                      background: themeName === key ? C.accent : "transparent",
+                      border: "none", borderRadius: 5,
+                      color: themeName === key ? "white" : C.text,
+                      cursor: "pointer", fontSize: 13, fontFamily: "inherit",
+                      textAlign: "left", fontWeight: themeName === key ? 600 : 400
+                    }}>{t.name}</button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px" }}>
 
         {/* PARSE TAB */}
         {tab === "parse" && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
             <div>
-              <div style={{ fontSize: 12, letterSpacing: 2, color: "#e85d26", marginBottom: 12 }}>NOTES APPLE / TAKEOFF</div>
+              <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: C.accent, marginBottom: 10, textTransform: "uppercase" }}>Notes Apple / Takeoff</div>
               <textarea
                 value={notesText}
                 onChange={e => setNotesText(e.target.value)}
                 placeholder="Collez votre liste de matériaux ici..."
                 style={{
-                  width: "100%", height: 400, background: "#1a1a1a", border: "1px solid #2a2a2a",
-                  borderRadius: 8, padding: 16, color: "#e8e8e8", fontFamily: "inherit",
-                  fontSize: 13, resize: "vertical", outline: "none", boxSizing: "border-box"
+                  width: "100%", height: 380, background: C.card, border: `1px solid ${C.border}`,
+                  borderRadius: 10, padding: 16, color: C.text, fontFamily: "inherit",
+                  fontSize: 13, resize: "vertical", outline: "none", boxSizing: "border-box",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.06)"
                 }}
               />
               <button
@@ -202,36 +264,37 @@ export default function App() {
                 disabled={parsing}
                 style={{
                   marginTop: 12, width: "100%", padding: 14,
-                  background: parsing ? "#333" : "#e85d26",
-                  border: "none", borderRadius: 6, color: "white",
-                  fontSize: 13, letterSpacing: 2, fontFamily: "inherit",
-                  cursor: parsing ? "not-allowed" : "pointer", fontWeight: 700
+                  background: parsing ? C.textLight : C.accent,
+                  border: "none", borderRadius: 8, color: "white",
+                  fontSize: 14, fontFamily: "inherit",
+                  cursor: parsing ? "not-allowed" : "pointer", fontWeight: 700,
+                  boxShadow: parsing ? "none" : "0 2px 6px rgba(26,107,181,0.3)"
                 }}
               >
-                {parsing ? "⏳ ANALYSE EN COURS..." : "⚡ ANALYSER AVEC L'IA"}
+                {parsing ? "⏳ Analyse en cours..." : "⚡ Analyser avec l'IA"}
               </button>
-              {parseError && <div style={{ marginTop: 8, color: "#ef4444", fontSize: 12 }}>{parseError}</div>}
+              {parseError && <div style={{ marginTop: 8, color: "#c0392b", fontSize: 12, background: "#fdecea", padding: "8px 12px", borderRadius: 6 }}>{parseError}</div>}
             </div>
             <div>
-              <div style={{ fontSize: 12, letterSpacing: 2, color: "#666", marginBottom: 12 }}>GUIDE D'UTILISATION</div>
-              <div style={{ background: "#1a1a1a", borderRadius: 8, padding: 20, border: "1px solid #2a2a2a" }}>
-                <div style={{ fontSize: 12, lineHeight: 1.8, color: "#999" }}>
-                  <div style={{ color: "#e85d26", marginBottom: 8, fontSize: 13 }}>Comment ça fonctionne:</div>
-                  <div>1. Copiez votre liste de matériaux depuis Apple Notes</div>
+              <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: C.textMuted, marginBottom: 10, textTransform: "uppercase" }}>Guide d'utilisation</div>
+              <div style={{ background: C.card, borderRadius: 10, padding: 20, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+                <div style={{ fontSize: 13, lineHeight: 2, color: C.textMuted }}>
+                  <div style={{ color: C.accent, marginBottom: 8, fontWeight: 600 }}>Comment ça fonctionne:</div>
+                  <div>1. Copiez votre liste depuis Apple Notes</div>
                   <div>2. Collez le texte dans la zone à gauche</div>
                   <div>3. Cliquez "Analyser avec l'IA"</div>
                   <div>4. L'IA reconnaît les produits et quantités</div>
                   <div>5. Vérifiez et modifiez la facture générée</div>
-                  <div style={{ color: "#e85d26", marginTop: 16, marginBottom: 8, fontSize: 13 }}>Formats acceptés:</div>
-                  <div style={{ fontFamily: "monospace", background: "#0f0f0f", padding: 12, borderRadius: 4, fontSize: 11 }}>
+                  <div style={{ color: C.accent, marginTop: 16, marginBottom: 8, fontWeight: 600 }}>Formats acceptés:</div>
+                  <div style={{ fontFamily: "monospace", background: C.inputBg, padding: 12, borderRadius: 6, fontSize: 12, color: C.text, border: `1px solid ${C.border}` }}>
                     <div>• "6x coude 90 1.5"</div>
                     <div>• "coude 90 - qty: 6"</div>
                     <div>• "1003 x 3" (code direct)</div>
                     <div>• "3 coupling 2 pouces"</div>
                     <div>• Noms français abrégés OK</div>
                   </div>
-                  <div style={{ color: "#666", marginTop: 16, fontSize: 11 }}>
-                    289 produits dans le catalogue · TPS 5% · TVQ 9.975%
+                  <div style={{ color: C.textLight, marginTop: 16, fontSize: 11 }}>
+                    289 produits · TPS 5% · TVQ 9.975%
                   </div>
                 </div>
               </div>
@@ -242,7 +305,6 @@ export default function App() {
         {/* INVOICE TAB */}
         {tab === "invoice" && (
           <div>
-            {/* Invoice header form */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
               {[
                 ["Facture #", invoiceNum, setInvoiceNum],
@@ -250,44 +312,44 @@ export default function App() {
                 ["Description du travail", jobDesc, setJobDesc],
               ].map(([label, val, setter]) => (
                 <div key={label}>
-                  <div style={{ fontSize: 10, letterSpacing: 2, color: "#666", marginBottom: 6 }}>{label}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: C.textMuted, marginBottom: 6, textTransform: "uppercase" }}>{label}</div>
                   <input
                     value={val}
                     onChange={e => setter(e.target.value)}
                     style={{
-                      width: "100%", background: "#1a1a1a", border: "1px solid #2a2a2a",
-                      borderRadius: 4, padding: "8px 12px", color: "#e8e8e8",
-                      fontFamily: "inherit", fontSize: 13, outline: "none", boxSizing: "border-box"
+                      width: "100%", background: C.card, border: `1px solid ${C.border}`,
+                      borderRadius: 6, padding: "9px 12px", color: C.text,
+                      fontFamily: "inherit", fontSize: 13, outline: "none", boxSizing: "border-box",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
                     }}
                   />
                 </div>
               ))}
             </div>
 
-            {/* Printable invoice */}
             <div id="invoice-print">
-              <div style={{ background: "#1a1a1a", borderRadius: 8, border: "1px solid #2a2a2a", overflow: "hidden" }}>
+              <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ background: "#111" }}>
-                      {["CODE", "DIM", "DESCRIPTION", "CATÉGORIE", "QTÉ", "PRIX UNIT.", "TOTAL", ""].map(h => (
-                        <th key={h} style={{ padding: "12px 16px", fontSize: 10, letterSpacing: 2, color: "#666", textAlign: "left", borderBottom: "1px solid #2a2a2a" }}>{h}</th>
+                    <tr style={{ background: "#e8f2fb" }}>
+                      {["Code", "Dim", "Description", "Catégorie", "Qté", "Prix unit.", "Total", ""].map(h => (
+                        <th key={h} style={{ padding: "12px 16px", fontSize: 11, fontWeight: 600, letterSpacing: 0.5, color: C.textMuted, textAlign: "left", borderBottom: `1px solid ${C.border}` }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {invoiceItems.length === 0 && (
-                      <tr><td colSpan={8} style={{ padding: 40, textAlign: "center", color: "#444", fontSize: 13 }}>
+                      <tr><td colSpan={8} style={{ padding: 40, textAlign: "center", color: C.textLight, fontSize: 13 }}>
                         Aucun article — parsez vos notes ou ajoutez depuis le catalogue
                       </td></tr>
                     )}
-                    {invoiceItems.map(item => (
-                      <tr key={item.id} style={{ borderBottom: "1px solid #1f1f1f" }}>
-                        <td style={{ padding: "10px 16px", fontSize: 12, color: "#888" }}>{item.product.code}</td>
-                        <td style={{ padding: "10px 16px", fontSize: 12, color: "#888" }}>{item.product.dim}</td>
-                        <td style={{ padding: "10px 16px", fontSize: 13 }}>{item.product.name}</td>
+                    {invoiceItems.map((item, idx) => (
+                      <tr key={item.id} style={{ borderBottom: `1px solid ${C.rowBorder}`, background: idx % 2 === 0 ? C.card : C.rowAlt }}>
+                        <td style={{ padding: "10px 16px", fontSize: 12, color: C.textLight }}>{item.product.code}</td>
+                        <td style={{ padding: "10px 16px", fontSize: 12, color: C.textMuted }}>{item.product.dim}</td>
+                        <td style={{ padding: "10px 16px", fontSize: 13, color: C.text, fontWeight: 500 }}>{item.product.name}</td>
                         <td style={{ padding: "10px 16px" }}>
-                          <span style={{ fontSize: 10, letterSpacing: 1, padding: "2px 8px", borderRadius: 3, background: CAT_COLORS[item.product.category] + "22", color: CAT_COLORS[item.product.category] }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 4, background: CAT_COLORS[item.product.category] + "22", color: CAT_COLORS[item.product.category] }}>
                             {item.product.category}
                           </span>
                         </td>
@@ -297,16 +359,16 @@ export default function App() {
                             value={item.qty}
                             onChange={e => updateQty(item.id, e.target.value)}
                             style={{
-                              width: 60, background: "#0f0f0f", border: "1px solid #333",
-                              borderRadius: 4, padding: "4px 8px", color: "#e8e8e8",
-                              fontFamily: "inherit", fontSize: 13, textAlign: "center"
+                              width: 60, background: C.inputBg, border: `1px solid ${C.border}`,
+                              borderRadius: 5, padding: "4px 8px", color: C.text,
+                              fontFamily: "inherit", fontSize: 13, textAlign: "center", outline: "none"
                             }}
                           />
                         </td>
-                        <td style={{ padding: "10px 16px", fontSize: 13, color: "#aaa" }}>{fmt(item.product.sell)}</td>
-                        <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600 }}>{fmt(item.qty * item.product.sell)}</td>
+                        <td style={{ padding: "10px 16px", fontSize: 13, color: C.textMuted }}>{fmt(item.product.sell)}</td>
+                        <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 700, color: C.accent }}>{fmt(item.qty * item.product.sell)}</td>
                         <td style={{ padding: "10px 16px" }}>
-                          <button onClick={() => removeItem(item.id)} style={{ background: "none", border: "none", color: "#444", cursor: "pointer", fontSize: 16, padding: 0 }}>✕</button>
+                          <button onClick={() => removeItem(item.id)} style={{ background: "none", border: "none", color: C.textLight, cursor: "pointer", fontSize: 16, padding: 0 }}>✕</button>
                         </td>
                       </tr>
                     ))}
@@ -314,27 +376,26 @@ export default function App() {
                 </table>
               </div>
 
-              {/* Totals */}
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-                <div style={{ width: 320, background: "#1a1a1a", borderRadius: 8, border: "1px solid #2a2a2a", padding: 20 }}>
+                <div style={{ width: 320, background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
                   {[["Sous-total", subtotal], ["TPS (5%)", tps], ["TVQ (9.975%)", tvq]].map(([label, val]) => (
-                    <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #1f1f1f", fontSize: 13, color: "#888" }}>
+                    <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${C.rowBorder}`, fontSize: 13, color: C.textMuted }}>
                       <span>{label}</span><span>{fmt(val)}</span>
                     </div>
                   ))}
-                  <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0 0", fontSize: 18, fontWeight: 700 }}>
-                    <span>TOTAL</span><span style={{ color: "#e85d26" }}>{fmt(total)}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0 0", fontSize: 20, fontWeight: 700 }}>
+                    <span style={{ color: C.text }}>TOTAL</span><span style={{ color: C.accent }}>{fmt(total)}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-              <button onClick={() => setTab("catalog")} style={{ padding: "10px 20px", background: "transparent", border: "1px solid #333", borderRadius: 4, color: "#888", cursor: "pointer", fontFamily: "inherit", fontSize: 12, letterSpacing: 1 }}>
-                + AJOUTER DEPUIS CATALOGUE
+              <button onClick={() => setTab("catalog")} style={{ padding: "10px 20px", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
+                + Ajouter depuis catalogue
               </button>
-              <button onClick={printInvoice} style={{ padding: "10px 20px", background: "#e85d26", border: "none", borderRadius: 4, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 12, letterSpacing: 1, fontWeight: 700 }}>
-                🖨️ IMPRIMER / PDF
+              <button onClick={printInvoice} style={{ padding: "10px 24px", background: C.accent, border: "none", borderRadius: 6, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 6px rgba(26,107,181,0.3)" }}>
+                🖨️ Imprimer / PDF
               </button>
             </div>
           </div>
@@ -343,49 +404,51 @@ export default function App() {
         {/* CATALOG TAB */}
         {tab === "catalog" && (
           <div>
-            <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
               <input
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 placeholder="Rechercher par nom ou code..."
                 style={{
-                  flex: 1, minWidth: 200, background: "#1a1a1a", border: "1px solid #2a2a2a",
-                  borderRadius: 4, padding: "8px 12px", color: "#e8e8e8",
-                  fontFamily: "inherit", fontSize: 13, outline: "none"
+                  flex: 1, minWidth: 200, background: C.card, border: `1px solid ${C.border}`,
+                  borderRadius: 6, padding: "9px 14px", color: C.text,
+                  fontFamily: "inherit", fontSize: 13, outline: "none",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
                 }}
               />
               {cats.map(cat => (
                 <button key={cat} onClick={() => setSelectedCat(cat)} style={{
-                  padding: "8px 14px", background: selectedCat === cat ? (CAT_COLORS[cat] || "#e85d26") : "transparent",
-                  border: `1px solid ${selectedCat === cat ? (CAT_COLORS[cat] || "#e85d26") : "#333"}`,
-                  borderRadius: 4, color: selectedCat === cat ? "white" : "#888",
-                  cursor: "pointer", fontSize: 10, letterSpacing: 1, fontFamily: "inherit"
+                  padding: "8px 14px", background: selectedCat === cat ? (CAT_COLORS[cat] || C.accent) : C.card,
+                  border: `1px solid ${selectedCat === cat ? (CAT_COLORS[cat] || C.accent) : C.border}`,
+                  borderRadius: 6, color: selectedCat === cat ? "white" : C.textMuted,
+                  cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: selectedCat === cat ? 600 : 400
                 }}>{cat}</button>
               ))}
             </div>
-            <div style={{ fontSize: 11, color: "#444", marginBottom: 12 }}>{filtered.length} produits</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }}>
+            <div style={{ fontSize: 12, color: C.textLight, marginBottom: 14 }}>{filtered.length} produits</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
               {filtered.map(p => (
                 <div key={p.code} style={{
-                  background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 6,
-                  padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center"
+                  background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
+                  padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
                 }}>
                   <div>
-                    <div style={{ fontSize: 13, marginBottom: 2 }}>{p.name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, color: C.text }}>{p.name}</div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ fontSize: 10, color: "#555" }}>#{p.code}</span>
-                      <span style={{ fontSize: 10, color: "#555" }}>{p.dim}</span>
-                      <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 2, background: CAT_COLORS[p.category] + "22", color: CAT_COLORS[p.category] }}>{p.category}</span>
+                      <span style={{ fontSize: 11, color: C.textLight }}>#{p.code}</span>
+                      <span style={{ fontSize: 11, color: C.textLight }}>{p.dim}</span>
+                      <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: CAT_COLORS[p.category] + "22", color: CAT_COLORS[p.category], fontWeight: 600 }}>{p.category}</span>
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#e85d26", marginBottom: 6 }}>{fmt(p.sell)}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.accent, marginBottom: 6 }}>{fmt(p.sell)}</div>
                     <button
                       onClick={() => { addProduct(p.code); setTab("invoice"); }}
                       style={{
-                        padding: "4px 12px", background: "#e85d26", border: "none",
-                        borderRadius: 3, color: "white", cursor: "pointer",
-                        fontFamily: "inherit", fontSize: 11
+                        padding: "5px 12px", background: C.accent, border: "none",
+                        borderRadius: 5, color: "white", cursor: "pointer",
+                        fontFamily: "inherit", fontSize: 12, fontWeight: 600
                       }}
                     >+ Ajouter</button>
                   </div>
@@ -398,4 +461,3 @@ export default function App() {
     </div>
   );
 }
-// updated
