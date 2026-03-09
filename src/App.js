@@ -35,7 +35,18 @@ Rules:
 - IMPORTANT: Preserve decimal and fractional quantities exactly. "2.5 longueurs" → qty: 2.5, "0.5 tuyau" → qty: 0.5, "1.5x" → qty: 1.5
 - If a code is written directly (like "1003"), use it directly
 - Be generous with matching - "coude 90" matches any Coude 90 variant
-- For ambiguous matches, pick the most common/basic version`;
+- For ambiguous matches, pick the most common/basic version
+- STRICT MATCHING RULES:
+  * A "T" fitting (T, TY, T 3/4, T UPONOR) is a PIPE CONNECTOR - NEVER match it to any "valve" product
+  * "valve" means a shutoff/control device - NEVER match it to a T or TY pipe fitting
+  * EXACT EXAMPLES - always follow these:
+    - "valve antibelier uponor" or "valve tete d'air uponor" → code 4044 (Valve Antibélier 1/2 x 3/8 UPONOR)
+    - "valve antibelier" or "valve tete d'air" without uponor → code 4043 (Valve Antibélier 1/2 x 3/8)
+    - "antibelier uponor" without the word "valve" → code 2094 (Antibélier UPONOR)
+    - "valve angle" → code 4034 or 4069 only
+    - "valve droite" → code 4035 or 4070 only
+    - "ball valve demi" → code 2012
+    - "ball valve 3/4" → code 2024`;
 
   const response = await fetch("/api/parse", {
     method: "POST",
@@ -129,6 +140,8 @@ export default function App() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newProduct, setNewProduct] = useState({ code: '', name: '', dim: '', category: 'ROUGH ABS', cost: '' });
   const [addError, setAddError] = useState('');
+  const [editingCode, setEditingCode] = useState(null);
+  const [editForm, setEditForm] = useState({});
 
   const subtotal = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const tps = subtotal * TPS;
@@ -200,6 +213,22 @@ export default function App() {
     localStorage.setItem('customProducts', JSON.stringify(updated));
     setNewProduct({ code: '', name: '', dim: '', category: 'ROUGH ABS', cost: '' });
     setShowAddForm(false);
+  };
+
+  const startEdit = (p) => {
+    setEditingCode(String(p.code));
+    setEditForm({ name: p.name, dim: p.dim, category: p.category, cost: p.cost });
+  };
+
+  const saveEdit = (code) => {
+    const cost = parseFloat(editForm.cost);
+    if (!editForm.name.trim() || !cost || cost <= 0) return;
+    const margins = { 'ROUGH ABS': 0.30, 'ROUGH PEX': 0.30, 'FOND DE TERRE': 0.20, 'FINITION': 0.15 };
+    const sell = parseFloat((cost / (1 - (margins[editForm.category] || 0.30))).toFixed(2));
+    const updated = { ...customProducts, [code]: { ...customProducts[code], code: parseInt(code), name: editForm.name.trim(), dim: editForm.dim.trim(), category: editForm.category, cost, sell } };
+    setCustomProducts(updated);
+    localStorage.setItem('customProducts', JSON.stringify(updated));
+    setEditingCode(null);
   };
 
   const deleteCustomProduct = (code) => {
@@ -540,6 +569,41 @@ export default function App() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
               {filtered.map(p => {
                 const isCustom = !!customProducts[String(p.code)];
+                const isEditing = editingCode === String(p.code);
+                const MARGINS_LABEL = { 'ROUGH ABS': '30%', 'ROUGH PEX': '30%', 'FOND DE TERRE': '20%', 'FINITION': '15%' };
+                const MARGINS = { 'ROUGH ABS': 0.30, 'ROUGH PEX': 0.30, 'FOND DE TERRE': 0.20, 'FINITION': 0.15 };
+
+                if (isEditing) return (
+                  <div key={p.code} style={{ background: C.card, border: `2px solid ${C.accent}`, borderRadius: 8, padding: "14px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 10 }}>✏️ MODIFIER #{p.code}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {[["Nom", "name", "text"], ["Dimension", "dim", "text"], ["Coût ($)", "cost", "number"]].map(([label, field, type]) => (
+                        <div key={field}>
+                          <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 3, fontWeight: 600 }}>{label}</div>
+                          <input type={type} value={editForm[field]} onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
+                            style={{ width: "100%", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 5, padding: "6px 8px", color: C.text, fontFamily: "inherit", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                        </div>
+                      ))}
+                      <div>
+                        <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 3, fontWeight: 600 }}>Catégorie</div>
+                        <select value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
+                          style={{ width: "100%", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 5, padding: "6px 8px", color: C.text, fontFamily: "inherit", fontSize: 12, outline: "none" }}>
+                          {["ROUGH ABS", "ROUGH PEX", "FOND DE TERRE", "FINITION"].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      {editForm.cost && parseFloat(editForm.cost) > 0 && (
+                        <div style={{ fontSize: 11, color: C.textMuted }}>
+                          Vente: <strong style={{ color: C.accent }}>{fmt(parseFloat(editForm.cost) / (1 - (MARGINS[editForm.category] || 0.30)))}</strong> (marge {MARGINS_LABEL[editForm.category]})
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                        <button onClick={() => saveEdit(String(p.code))} style={{ flex: 1, padding: "7px", background: C.accent, border: "none", borderRadius: 5, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700 }}>✓ Sauver</button>
+                        <button onClick={() => setEditingCode(null)} style={{ flex: 1, padding: "7px", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 5, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>Annuler</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+
                 return (
                   <div key={p.code} style={{
                     background: C.card, border: `1px solid ${isCustom ? C.accent : C.border}`, borderRadius: 8,
@@ -560,13 +624,12 @@ export default function App() {
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontSize: 15, fontWeight: 700, color: C.accent, marginBottom: 6 }}>{fmt(p.sell)}</div>
                       <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => startEdit(p)} style={{ padding: "4px 8px", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 5, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 11 }}>✏️</button>
                         {isCustom && (
                           <button onClick={() => deleteCustomProduct(String(p.code))} style={{ padding: "4px 8px", background: "#fdecea", border: "1px solid #f5c6c6", borderRadius: 5, color: "#c0392b", cursor: "pointer", fontFamily: "inherit", fontSize: 11 }}>✕</button>
                         )}
-                        <button
-                          onClick={() => { addProduct(p.code); setTab("invoice"); }}
-                          style={{ padding: "5px 12px", background: C.accent, border: "none", borderRadius: 5, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 600 }}
-                        >+ Ajouter</button>
+                        <button onClick={() => { addProduct(p.code); setTab("invoice"); }}
+                          style={{ padding: "5px 12px", background: C.accent, border: "none", borderRadius: 5, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 600 }}>+ Ajouter</button>
                       </div>
                     </div>
                   </div>
