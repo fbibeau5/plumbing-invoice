@@ -473,7 +473,7 @@ export default function App() {
                   {[
                     ["Code", "code", "ex: 5001"],
                     ["Nom", "name", "ex: Coude 90 spécial"],
-                    ["Dimension", "dim", "ex: 2""],
+                    ["Dimension", "dim", "ex: 2 pouces"],
                   ].map(([label, field, placeholder]) => (
                     <div key={field}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
