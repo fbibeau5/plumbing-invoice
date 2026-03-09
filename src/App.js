@@ -157,7 +157,14 @@ export default function App() {
   };
 
   const updateQty = (id, val) => {
-    setInvoiceItems(prev => prev.map(i => i.id === id ? { ...i, qty: Math.max(0, parseFloat(val) || 0) } : i));
+    // Store raw string while typing so "2." doesn't get wiped mid-entry
+    setInvoiceItems(prev => prev.map(i => i.id === id ? { ...i, qty: val } : i));
+  };
+
+  const commitQty = (id, val) => {
+    // On blur, convert to final float
+    const num = Math.max(0, parseFloat(val) || 0);
+    setInvoiceItems(prev => prev.map(i => i.id === id ? { ...i, qty: num } : i));
   };
 
   const removeItem = (id) => setInvoiceItems(prev => prev.filter(i => i.id !== id));
@@ -390,6 +397,7 @@ export default function App() {
                             type="number"
                             value={item.qty}
                             onChange={e => updateQty(item.id, e.target.value)}
+                            onBlur={e => commitQty(item.id, e.target.value)}
                             step="0.25"
                             min="0"
                             style={{
