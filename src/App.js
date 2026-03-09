@@ -148,6 +148,7 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem('categoryMargins') || 'null') || { ...DEFAULT_MARGINS }; } catch(e) { return { ...DEFAULT_MARGINS }; }
   });
   const [showMarginSettings, setShowMarginSettings] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null);
 
   const subtotal = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const tps = subtotal * TPS;
@@ -309,6 +310,49 @@ export default function App() {
     return matchCat && matchSearch;
   });
 
+  const saveToWeeklyReport = async () => {
+    if (invoiceItems.length === 0) return;
+    const weekKey = (() => {
+      const now = new Date();
+      const jan1 = new Date(now.getFullYear(), 0, 1);
+      const week = Math.ceil(((now - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+      return `week_${now.getFullYear()}_${String(week).padStart(2, '0')}`;
+    })();
+    try {
+      // Build items map
+      const items = {};
+      invoiceItems.forEach(item => {
+        const code = String(item.product.code);
+        if (items[code]) {
+          items[code].qty += parseFloat(item.qty) || 0;
+        } else {
+          items[code] = {
+            code: item.product.code,
+            name: item.product.name,
+            dim: item.product.dim,
+            category: item.product.category,
+            qty: parseFloat(item.qty) || 0,
+          };
+        }
+      });
+
+      // Send to server-side storage (for cron job to read)
+      const res = await fetch(`/api/report-data?key=${weekKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      });
+
+      if (!res.ok) throw new Error('Erreur serveur');
+
+      setSaveStatus('✅ Ajouté au rapport de la semaine!');
+      setTimeout(() => setSaveStatus(null), 3000);
+    } catch(e) {
+      setSaveStatus('❌ Erreur: ' + e.message);
+      setTimeout(() => setSaveStatus(null), 4000);
+    }
+  };
+
   const printInvoice = () => {
     const printContent = document.getElementById("invoice-print");
     const w = window.open("", "_blank");
@@ -339,7 +383,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {[["parse", "📋 Notes"], ["invoice", `🧾 Facture (${invoiceItems.length})`], ["catalog", "📦 Catalogue"], ["margins", "📊 Marges"]].map(([id, label]) => (
+            {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["catalog", "🗂️ Catalogue"], ["margins", "📊 Marges"]].map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} style={{
                 padding: "8px 18px", background: tab === id ? C.accent : "rgba(255,255,255,0.1)",
                 border: `1px solid ${tab === id ? C.accent : "rgba(255,255,255,0.2)"}`,
@@ -576,13 +620,17 @@ export default function App() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+            <div style={{ display: "flex", gap: 12, marginTop: 20, alignItems: "center", flexWrap: "wrap" }}>
               <button onClick={() => setTab("catalog")} style={{ padding: "10px 20px", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
                 + Ajouter depuis catalogue
+              </button>
+              <button onClick={saveToWeeklyReport} disabled={invoiceItems.length === 0} style={{ padding: "10px 20px", background: invoiceItems.length === 0 ? C.inputBg : "#16a34a", border: "none", borderRadius: 6, color: invoiceItems.length === 0 ? C.textLight : "white", cursor: invoiceItems.length === 0 ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600 }}>
+                📊 Ajouter au rapport semaine
               </button>
               <button onClick={printInvoice} style={{ padding: "10px 24px", background: C.accent, border: "none", borderRadius: 6, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 6px rgba(26,107,181,0.3)" }}>
                 🖨️ Imprimer / PDF
               </button>
+              {saveStatus && <div style={{ fontSize: 13, fontWeight: 600, color: saveStatus.startsWith('✅') ? "#16a34a" : "#c0392b" }}>{saveStatus}</div>}
             </div>
           </div>
         )}
