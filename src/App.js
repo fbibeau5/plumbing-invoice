@@ -11,7 +11,9 @@ const CAT_COLORS = {
   "FINITION": "#9333ea",
 };
 
+const DEFAULT_MARGINS = { 'ROUGH ABS': 0.30, 'ROUGH PEX': 0.30, 'FOND DE TERRE': 0.20, 'FINITION': 0.15 };
 const fmt = (n) => `$${n.toFixed(2)}`;
+const pct = (n) => `${Math.round(n * 100)}%`;
 
 async function parseNotesWithAI(text) {
   const productList = Object.values(PRODUCTS).map(p => `${p.code}: ${p.name} (${p.dim}) [${p.category}]`).join('\n');
@@ -142,11 +144,25 @@ export default function App() {
   const [editingCode, setEditingCode] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [pendingReview, setPendingReview] = useState([]); // items needing user selection
+  const [categoryMargins, setCategoryMargins] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('categoryMargins') || 'null') || { ...DEFAULT_MARGINS }; } catch(e) { return { ...DEFAULT_MARGINS }; }
+  });
+  const [showMarginSettings, setShowMarginSettings] = useState(false);
 
   const subtotal = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const tps = subtotal * TPS;
   const tvq = subtotal * TVQ;
   const total = subtotal + tps + tvq;
+
+  const getSellPrice = (cost, category, overrideMargin) => {
+    const margin = overrideMargin != null ? overrideMargin : (categoryMargins[category] ?? DEFAULT_MARGINS[category] ?? 0.30);
+    return parseFloat((cost / (1 - margin)).toFixed(2));
+  };
+
+  const saveCategoryMargins = (updated) => {
+    setCategoryMargins(updated);
+    localStorage.setItem('categoryMargins', JSON.stringify(updated));
+  };
 
   const handleParse = async () => {
     if (!notesText.trim()) return;
@@ -254,9 +270,8 @@ export default function App() {
     if (!newProduct.name.trim()) return setAddError('Nom requis');
     if (!cost || cost <= 0) return setAddError('Coût invalide');
     if (PRODUCTS[code] || customProducts[code]) return setAddError('Ce code existe déjà');
-    const margins = { 'ROUGH ABS': 0.30, 'ROUGH PEX': 0.30, 'FOND DE TERRE': 0.20, 'FINITION': 0.15 };
-    const margin = margins[newProduct.category] || 0.30;
-    const sell = parseFloat((cost / (1 - margin)).toFixed(2));
+    const margin = categoryMargins[newProduct.category] ?? DEFAULT_MARGINS[newProduct.category] ?? 0.30;
+    const sell = getSellPrice(cost, newProduct.category);
     const product = { code, name: newProduct.name.trim(), dim: newProduct.dim.trim(), category: newProduct.category, cost, sell };
     const updated = { ...customProducts, [code]: product };
     setCustomProducts(updated);
@@ -267,15 +282,15 @@ export default function App() {
 
   const startEdit = (p) => {
     setEditingCode(String(p.code));
-    setEditForm({ name: p.name, dim: p.dim, category: p.category, cost: p.cost });
+    setEditForm({ name: p.name, dim: p.dim, category: p.category, cost: p.cost, overrideMargin: p.overrideMargin != null ? String(Math.round(p.overrideMargin * 100)) : '' });
   };
 
   const saveEdit = (code) => {
     const cost = parseFloat(editForm.cost);
     if (!editForm.name.trim() || !cost || cost <= 0) return;
-    const margins = { 'ROUGH ABS': 0.30, 'ROUGH PEX': 0.30, 'FOND DE TERRE': 0.20, 'FINITION': 0.15 };
-    const sell = parseFloat((cost / (1 - (margins[editForm.category] || 0.30))).toFixed(2));
-    const updated = { ...customProducts, [code]: { ...customProducts[code], code: parseInt(code), name: editForm.name.trim(), dim: editForm.dim.trim(), category: editForm.category, cost, sell } };
+    const overrideMargin = editForm.overrideMargin != null ? parseFloat(editForm.overrideMargin) : null;
+    const sell = getSellPrice(cost, editForm.category, overrideMargin);
+    const updated = { ...customProducts, [code]: { ...customProducts[code], code: parseInt(code), name: editForm.name.trim(), dim: editForm.dim.trim(), category: editForm.category, cost, sell, overrideMargin } };
     setCustomProducts(updated);
     localStorage.setItem('customProducts', JSON.stringify(updated));
     setEditingCode(null);
@@ -324,7 +339,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {[["parse", "📋 Notes"], ["invoice", `🧾 Facture (${invoiceItems.length})`], ["catalog", "📦 Catalogue"]].map(([id, label]) => (
+            {[["parse", "📋 Notes"], ["invoice", `🧾 Facture (${invoiceItems.length})`], ["catalog", "📦 Catalogue"], ["margins", "📊 Marges"]].map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} style={{
                 padding: "8px 18px", background: tab === id ? C.accent : "rgba(255,255,255,0.1)",
                 border: `1px solid ${tab === id ? C.accent : "rgba(255,255,255,0.2)"}`,
@@ -536,7 +551,10 @@ export default function App() {
                             }}
                           />
                         </td>
-                        <td style={{ padding: "10px 16px", fontSize: 13, color: C.textMuted }}>{fmt(item.product.sell)}</td>
+                        <td style={{ padding: "10px 16px", fontSize: 13, color: C.textMuted }}>
+                          <div>{fmt(item.product.sell)}</div>
+                          <div style={{ fontSize: 10, color: C.textLight, marginTop: 1 }}>coût: {fmt(item.product.cost)}</div>
+                        </td>
                         <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 700, color: C.accent }}>{fmt(item.qty * item.product.sell)}</td>
                         <td style={{ padding: "10px 16px" }}>
                           <button onClick={() => removeItem(item.id)} style={{ background: "none", border: "none", color: C.textLight, cursor: "pointer", fontSize: 16, padding: 0 }}>✕</button>
@@ -648,8 +666,8 @@ export default function App() {
                 {newProduct.cost && parseFloat(newProduct.cost) > 0 && (
                   <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
                     Prix de vente calculé: <strong style={{ color: C.accent }}>
-                      {fmt(parseFloat(newProduct.cost) / (1 - ({ 'ROUGH ABS': 0.30, 'ROUGH PEX': 0.30, 'FOND DE TERRE': 0.20, 'FINITION': 0.15 }[newProduct.category] || 0.30)))}
-                    </strong> (marge {({ 'ROUGH ABS': '30%', 'ROUGH PEX': '30%', 'FOND DE TERRE': '20%', 'FINITION': '15%' }[newProduct.category])})
+                      {fmt(getSellPrice(parseFloat(newProduct.cost), newProduct.category))}
+                    </strong> (marge {Math.round((categoryMargins[newProduct.category] ?? DEFAULT_MARGINS[newProduct.category]) * 100)}%)
                   </div>
                 )}
                 {addError && <div style={{ color: "#c0392b", fontSize: 12, marginBottom: 10, background: "#fdecea", padding: "6px 10px", borderRadius: 5 }}>{addError}</div>}
@@ -669,8 +687,6 @@ export default function App() {
               {filtered.map(p => {
                 const isCustom = !!customProducts[String(p.code)];
                 const isEditing = editingCode === String(p.code);
-                const MARGINS_LABEL = { 'ROUGH ABS': '30%', 'ROUGH PEX': '30%', 'FOND DE TERRE': '20%', 'FINITION': '15%' };
-                const MARGINS = { 'ROUGH ABS': 0.30, 'ROUGH PEX': 0.30, 'FOND DE TERRE': 0.20, 'FINITION': 0.15 };
 
                 if (isEditing) return (
                   <div key={p.code} style={{ background: C.card, border: `2px solid ${C.accent}`, borderRadius: 8, padding: "14px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
@@ -690,11 +706,26 @@ export default function App() {
                           {["ROUGH ABS", "ROUGH PEX", "FOND DE TERRE", "FINITION"].map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
-                      {editForm.cost && parseFloat(editForm.cost) > 0 && (
-                        <div style={{ fontSize: 11, color: C.textMuted }}>
-                          Vente: <strong style={{ color: C.accent }}>{fmt(parseFloat(editForm.cost) / (1 - (MARGINS[editForm.category] || 0.30)))}</strong> (marge {MARGINS_LABEL[editForm.category]})
+                      <div>
+                        <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 3, fontWeight: 600 }}>
+                          Marge individuelle (%) — <span style={{ fontWeight: 400 }}>laisser vide pour utiliser la marge de la catégorie ({Math.round((categoryMargins[editForm.category] ?? DEFAULT_MARGINS[editForm.category]) * 100)}%)</span>
                         </div>
-                      )}
+                        <input type="number" min="1" max="60" placeholder={`${Math.round((categoryMargins[editForm.category] ?? DEFAULT_MARGINS[editForm.category]) * 100)} (catégorie)`}
+                          value={editForm.overrideMargin ?? ''}
+                          onChange={e => setEditForm(f => ({ ...f, overrideMargin: e.target.value === '' ? null : e.target.value }))}
+                          style={{ width: "100%", background: C.inputBg, border: `1px solid ${C.accent}`, borderRadius: 5, padding: "6px 8px", color: C.text, fontFamily: "inherit", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                      </div>
+                      {editForm.cost && parseFloat(editForm.cost) > 0 && (() => {
+                        const overrideMargin = editForm.overrideMargin ? parseFloat(editForm.overrideMargin) / 100 : null;
+                        const effectiveMargin = overrideMargin ?? (categoryMargins[editForm.category] ?? DEFAULT_MARGINS[editForm.category]);
+                        const sellPrice = getSellPrice(parseFloat(editForm.cost), editForm.category, overrideMargin);
+                        return (
+                          <div style={{ fontSize: 11, color: C.textMuted, background: C.inputBg, padding: "6px 10px", borderRadius: 5 }}>
+                            Prix vente: <strong style={{ color: C.accent }}>{fmt(sellPrice)}</strong>
+                            <span style={{ marginLeft: 8 }}>marge: <strong style={{ color: overrideMargin ? "#e67e22" : C.textMuted }}>{Math.round(effectiveMargin * 100)}%{overrideMargin ? " (individuelle)" : " (catégorie)"}</strong></span>
+                          </div>
+                        );
+                      })()}
                       <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                         <button onClick={() => saveEdit(String(p.code))} style={{ flex: 1, padding: "7px", background: C.accent, border: "none", borderRadius: 5, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700 }}>✓ Sauver</button>
                         <button onClick={() => setEditingCode(null)} style={{ flex: 1, padding: "7px", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 5, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>Annuler</button>
@@ -721,7 +752,8 @@ export default function App() {
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: C.accent, marginBottom: 6 }}>{fmt(p.sell)}</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: C.accent, marginBottom: 2 }}>{fmt(p.sell)}</div>
+                      <div style={{ fontSize: 10, color: C.textLight, marginBottom: 6 }}>coût: {fmt(p.cost)}</div>
                       <div style={{ display: "flex", gap: 6 }}>
                         <button onClick={() => startEdit(p)} style={{ padding: "4px 8px", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 5, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 11 }}>✏️</button>
                         {isCustom && (
@@ -737,6 +769,82 @@ export default function App() {
             </div>
           </div>
         )}
+        )}
+
+        {/* MARGINS TAB */}
+        {tab === "margins" && (() => {
+          const cats = ["ROUGH ABS", "ROUGH PEX", "FOND DE TERRE", "FINITION"];
+          return (
+            <div style={{ maxWidth: 700 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: C.accent, marginBottom: 20, textTransform: "uppercase" }}>Configuration des marges de profit</div>
+
+              {/* Category margins */}
+              <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: 24, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>Marges par catégorie</div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 20 }}>Ces marges s'appliquent à tous les produits de la catégorie, sauf si une marge individuelle est définie.</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {cats.map(cat => {
+                    const current = categoryMargins[cat] ?? DEFAULT_MARGINS[cat];
+                    return (
+                      <div key={cat} style={{ display: "grid", gridTemplateColumns: "180px 1fr 80px 100px", gap: 12, alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: "50%", background: CAT_COLORS[cat], display: "inline-block" }} />
+                          <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{cat}</span>
+                        </div>
+                        <input
+                          type="range" min="1" max="60" value={Math.round(current * 100)}
+                          onChange={e => saveCategoryMargins({ ...categoryMargins, [cat]: parseFloat(e.target.value) / 100 })}
+                          style={{ accentColor: CAT_COLORS[cat], cursor: "pointer" }}
+                        />
+                        <div style={{ textAlign: "center" }}>
+                          <input
+                            type="number" min="1" max="60" value={Math.round(current * 100)}
+                            onChange={e => {
+                              const v = Math.min(60, Math.max(1, parseInt(e.target.value) || 1));
+                              saveCategoryMargins({ ...categoryMargins, [cat]: v / 100 });
+                            }}
+                            style={{ width: "100%", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 5, padding: "5px 8px", color: C.text, fontFamily: "inherit", fontSize: 13, textAlign: "center", outline: "none" }}
+                          />
+                        </div>
+                        <div style={{ fontSize: 11, color: C.textMuted, textAlign: "center" }}>
+                          % marge <span style={{ color: CAT_COLORS[cat], fontWeight: 700 }}>{Math.round(current * 100)}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: 16, padding: "10px 14px", background: C.inputBg, borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, color: C.textMuted }}>
+                  ℹ️ La marge est calculée sur le prix de vente: <code style={{ background: C.card, padding: "1px 5px", borderRadius: 3 }}>prix vente = coût ÷ (1 − marge)</code>. Une marge de 30% sur un item de 10$ donne 14.29$.
+                </div>
+              </div>
+
+              {/* Individual overrides */}
+              <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>Marges individuelles</div>
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 16 }}>
+                  Pour modifier la marge d'un produit spécifique, cliquez ✏️ sur le produit dans le <button onClick={() => setTab("catalog")} style={{ background: "none", border: "none", color: C.accent, cursor: "pointer", fontFamily: "inherit", fontSize: 12, padding: 0, fontWeight: 600 }}>Catalogue</button> et ajustez le % de marge.
+                </div>
+                {(() => {
+                  const withOverride = Object.values(customProducts).filter(p => p.overrideMargin != null);
+                  if (withOverride.length === 0) return <div style={{ color: C.textLight, fontSize: 13 }}>Aucune marge individuelle définie pour l'instant.</div>;
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {withOverride.map(p => (
+                        <div key={p.code} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: C.inputBg, borderRadius: 6, border: `1px solid ${C.border}` }}>
+                          <div>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.name}</span>
+                            <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>#{p.code} · {p.category}</span>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: CAT_COLORS[p.category] }}>{Math.round(p.overrideMargin * 100)}% <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 400 }}>(cat: {Math.round((categoryMargins[p.category] ?? DEFAULT_MARGINS[p.category]) * 100)}%)</span></div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
