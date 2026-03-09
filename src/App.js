@@ -25,13 +25,14 @@ ${text}
 
 Return ONLY a JSON array with no explanation, no markdown fences. Each item must have:
 - "code": product code number (integer) from catalog, or null if not found
-- "qty": quantity (integer)
+- "qty": quantity as a decimal number (float, NOT integer) - preserve fractions exactly
 - "note": original text fragment you matched
 - "suggested": suggested product name if code found, else the raw item text
 
 Rules:
 - Match products by name similarity, even if abbreviations or French variants are used
 - Numbers at the start of a line or before a product name are quantities
+- IMPORTANT: Preserve decimal and fractional quantities exactly. "2.5 longueurs" → qty: 2.5, "0.5 tuyau" → qty: 0.5, "1.5x" → qty: 1.5
 - If a code is written directly (like "1003"), use it directly
 - Be generous with matching - "coude 90" matches any Coude 90 variant
 - For ambiguous matches, pick the most common/basic version`;
