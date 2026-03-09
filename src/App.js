@@ -24,29 +24,28 @@ NOTES TEXT:
 ${text}
 
 Return ONLY a JSON array with no explanation, no markdown fences. Each item must have:
-- "code": product code number (integer) from catalog, or null if not found
-- "qty": quantity as a decimal number (float, NOT integer) - preserve fractions exactly
-- "note": original text fragment you matched
-- "suggested": suggested product name if code found, else the raw item text
+- "note": the original text fragment from the notes (exact words used)
+- "qty": quantity as a decimal number (float) - preserve fractions exactly. "2.5 longueurs" → 2.5
+- "confidence": number from 0 to 1 indicating how confident you are in the match
+- "matches": array of up to 3 best matching products from catalog, each with:
+  - "code": product code (integer)
+  - "name": product name from catalog
+  - "dim": dimension
+  - "category": category
+  - "reason": brief reason why this matches (1 sentence max)
 
 Rules:
-- Match products by name similarity, even if abbreviations or French variants are used
-- Numbers at the start of a line or before a product name are quantities
-- IMPORTANT: Preserve decimal and fractional quantities exactly. "2.5 longueurs" → qty: 2.5, "0.5 tuyau" → qty: 0.5, "1.5x" → qty: 1.5
-- If a code is written directly (like "1003"), use it directly
-- Be generous with matching - "coude 90" matches any Coude 90 variant
-- For ambiguous matches, pick the most common/basic version
-- STRICT MATCHING RULES:
-  * A "T" fitting (T, TY, T 3/4, T UPONOR) is a PIPE CONNECTOR - NEVER match it to any "valve" product
-  * "valve" means a shutoff/control device - NEVER match it to a T or TY pipe fitting
-  * EXACT EXAMPLES - always follow these:
-    - "valve antibelier uponor" or "valve tete d'air uponor" → code 4044 (Valve Antibélier 1/2 x 3/8 UPONOR)
-    - "valve antibelier" or "valve tete d'air" without uponor → code 4043 (Valve Antibélier 1/2 x 3/8)
-    - "antibelier uponor" without the word "valve" → code 2094 (Antibélier UPONOR)
-    - "valve angle" → code 4034 or 4069 only
-    - "valve droite" → code 4035 or 4070 only
-    - "ball valve demi" → code 2012
-    - "ball valve 3/4" → code 2024`;
+- confidence >= 0.85 means you are very sure (exact or near-exact name match)
+- confidence < 0.85 means there is ambiguity - provide 2-3 alternatives in matches array
+- If a product code is written directly (like "1003"), confidence = 1.0
+- Preserve decimal quantities exactly
+- NEVER match "valve" to a T or TY pipe fitting
+- NEVER match "coude" to a valve
+- "valve antibelier uponor" → code 4044, confidence 1.0
+- "valve antibelier" → code 4043, confidence 1.0
+- "valve angle" → code 4034 or 4069 only
+- "valve droite" → code 4035 or 4070 only
+- The first item in "matches" is always your best guess`;
 
   const response = await fetch("/api/parse", {
     method: "POST",
@@ -142,6 +141,7 @@ export default function App() {
   const [addError, setAddError] = useState('');
   const [editingCode, setEditingCode] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [pendingReview, setPendingReview] = useState([]); // items needing user selection
 
   const subtotal = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const tps = subtotal * TPS;
@@ -152,22 +152,72 @@ export default function App() {
     if (!notesText.trim()) return;
     setParsing(true);
     setParseError(null);
+    setPendingReview([]);
     try {
       const parsed = await parseNotesWithAI(notesText);
-      const items = parsed
-        .filter(i => i.code && PRODUCTS[String(i.code)])
-        .map(i => ({
-          id: Math.random().toString(36).slice(2),
-          product: PRODUCTS[String(i.code)],
-          qty: i.qty || 1,
-          note: i.note,
-        }));
-      setInvoiceItems(items);
-      if (items.length > 0) setTab("invoice");
+      const allProducts = { ...PRODUCTS, ...customProducts };
+      const confident = [];
+      const uncertain = [];
+
+      parsed.forEach(i => {
+        if (!i.matches || i.matches.length === 0) return;
+        const qty = i.qty || 1;
+        const confidence = i.confidence || 0;
+        const best = i.matches[0];
+
+        if (confidence >= 0.85 && allProducts[String(best.code)]) {
+          confident.push({
+            id: Math.random().toString(36).slice(2),
+            product: allProducts[String(best.code)],
+            qty,
+            note: i.note,
+          });
+        } else {
+          // needs user review
+          uncertain.push({
+            id: Math.random().toString(36).slice(2),
+            note: i.note,
+            qty,
+            confidence,
+            matches: i.matches.filter(m => allProducts[String(m.code)]).map(m => ({
+              ...m,
+              product: allProducts[String(m.code)]
+            })),
+          });
+        }
+      });
+
+      setInvoiceItems(confident);
+      if (uncertain.length > 0) {
+        setPendingReview(uncertain);
+      } else if (confident.length > 0) {
+        setTab("invoice");
+      }
     } catch (e) {
       setParseError("Erreur de parsing: " + e.message);
     }
     setParsing(false);
+  };
+
+  const confirmReviewItem = (reviewId, selectedCode) => {
+    const allProducts = { ...PRODUCTS, ...customProducts };
+    const item = pendingReview.find(r => r.id === reviewId);
+    if (!item || !allProducts[String(selectedCode)]) return;
+    setInvoiceItems(prev => [...prev, {
+      id: Math.random().toString(36).slice(2),
+      product: allProducts[String(selectedCode)],
+      qty: item.qty,
+      note: item.note,
+    }]);
+    const remaining = pendingReview.filter(r => r.id !== reviewId);
+    setPendingReview(remaining);
+    if (remaining.length === 0) setTab("invoice");
+  };
+
+  const skipReviewItem = (reviewId) => {
+    const remaining = pendingReview.filter(r => r.id !== reviewId);
+    setPendingReview(remaining);
+    if (remaining.length === 0 && invoiceItems.length > 0) setTab("invoice");
   };
 
   const updateQty = (id, val) => {
@@ -314,60 +364,109 @@ export default function App() {
 
         {/* PARSE TAB */}
         {tab === "parse" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: C.accent, marginBottom: 10, textTransform: "uppercase" }}>Notes Apple / Takeoff</div>
-              <textarea
-                value={notesText}
-                onChange={e => setNotesText(e.target.value)}
-                placeholder="Collez votre liste de matériaux ici..."
-                style={{
-                  width: "100%", height: 380, background: C.card, border: `1px solid ${C.border}`,
-                  borderRadius: 10, padding: 16, color: C.text, fontFamily: "inherit",
-                  fontSize: 13, resize: "vertical", outline: "none", boxSizing: "border-box",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.06)"
-                }}
-              />
-              <button
-                onClick={handleParse}
-                disabled={parsing}
-                style={{
-                  marginTop: 12, width: "100%", padding: 14,
-                  background: parsing ? C.textLight : C.accent,
-                  border: "none", borderRadius: 8, color: "white",
-                  fontSize: 14, fontFamily: "inherit",
-                  cursor: parsing ? "not-allowed" : "pointer", fontWeight: 700,
-                  boxShadow: parsing ? "none" : "0 2px 6px rgba(26,107,181,0.3)"
-                }}
-              >
-                {parsing ? "⏳ Analyse en cours..." : "⚡ Analyser avec l'IA"}
-              </button>
-              {parseError && <div style={{ marginTop: 8, color: "#c0392b", fontSize: 12, background: "#fdecea", padding: "8px 12px", borderRadius: 6 }}>{parseError}</div>}
-            </div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: C.textMuted, marginBottom: 10, textTransform: "uppercase" }}>Guide d'utilisation</div>
-              <div style={{ background: C.card, borderRadius: 10, padding: 20, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-                <div style={{ fontSize: 13, lineHeight: 2, color: C.textMuted }}>
-                  <div style={{ color: C.accent, marginBottom: 8, fontWeight: 600 }}>Comment ça fonctionne:</div>
-                  <div>1. Copiez votre liste depuis Apple Notes</div>
-                  <div>2. Collez le texte dans la zone à gauche</div>
-                  <div>3. Cliquez "Analyser avec l'IA"</div>
-                  <div>4. L'IA reconnaît les produits et quantités</div>
-                  <div>5. Vérifiez et modifiez la facture générée</div>
-                  <div style={{ color: C.accent, marginTop: 16, marginBottom: 8, fontWeight: 600 }}>Formats acceptés:</div>
-                  <div style={{ fontFamily: "monospace", background: C.inputBg, padding: 12, borderRadius: 6, fontSize: 12, color: C.text, border: `1px solid ${C.border}` }}>
-                    <div>• "6x coude 90 1.5"</div>
-                    <div>• "coude 90 - qty: 6"</div>
-                    <div>• "1003 x 3" (code direct)</div>
-                    <div>• "3 coupling 2 pouces"</div>
-                    <div>• Noms français abrégés OK</div>
-                  </div>
-                  <div style={{ color: C.textLight, marginTop: 16, fontSize: 11 }}>
-                    289 produits · TPS 5% · TVQ 9.975%
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: C.accent, marginBottom: 10, textTransform: "uppercase" }}>Notes Apple / Takeoff</div>
+                <textarea
+                  value={notesText}
+                  onChange={e => setNotesText(e.target.value)}
+                  placeholder="Collez votre liste de matériaux ici..."
+                  style={{
+                    width: "100%", height: 340, background: C.card, border: `1px solid ${C.border}`,
+                    borderRadius: 10, padding: 16, color: C.text, fontFamily: "inherit",
+                    fontSize: 13, resize: "vertical", outline: "none", boxSizing: "border-box",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.06)"
+                  }}
+                />
+                <button
+                  onClick={handleParse}
+                  disabled={parsing}
+                  style={{
+                    marginTop: 12, width: "100%", padding: 14,
+                    background: parsing ? C.textLight : C.accent,
+                    border: "none", borderRadius: 8, color: "white",
+                    fontSize: 14, fontFamily: "inherit",
+                    cursor: parsing ? "not-allowed" : "pointer", fontWeight: 700,
+                    boxShadow: parsing ? "none" : "0 2px 6px rgba(26,107,181,0.3)"
+                  }}
+                >
+                  {parsing ? "⏳ Analyse en cours..." : "⚡ Analyser avec l'IA"}
+                </button>
+                {parseError && <div style={{ marginTop: 8, color: "#c0392b", fontSize: 12, background: "#fdecea", padding: "8px 12px", borderRadius: 6 }}>{parseError}</div>}
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: C.textMuted, marginBottom: 10, textTransform: "uppercase" }}>Guide d'utilisation</div>
+                <div style={{ background: C.card, borderRadius: 10, padding: 20, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+                  <div style={{ fontSize: 13, lineHeight: 2, color: C.textMuted }}>
+                    <div style={{ color: C.accent, marginBottom: 8, fontWeight: 600 }}>Comment ça fonctionne:</div>
+                    <div>1. Copiez votre liste depuis Apple Notes</div>
+                    <div>2. Collez le texte dans la zone à gauche</div>
+                    <div>3. Cliquez "Analyser avec l'IA"</div>
+                    <div>4. Confirmez les items incertains si demandé</div>
+                    <div>5. Vérifiez et modifiez la facture générée</div>
+                    <div style={{ color: C.accent, marginTop: 12, marginBottom: 8, fontWeight: 600 }}>Formats acceptés:</div>
+                    <div style={{ fontFamily: "monospace", background: C.inputBg, padding: 12, borderRadius: 6, fontSize: 12, color: C.text, border: `1px solid ${C.border}` }}>
+                      <div>• "6x coude 90 1.5"</div>
+                      <div>• "2.5 longueurs 3/4 uponor"</div>
+                      <div>• "1003 x 3" (code direct)</div>
+                      <div>• "valve antibelier uponor"</div>
+                    </div>
+                    <div style={{ color: C.textLight, marginTop: 12, fontSize: 11 }}>
+                      {Object.keys({...PRODUCTS,...customProducts}).length} produits · TPS 5% · TVQ 9.975%
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* REVIEW PANEL - uncertain items */}
+            {pendingReview.length > 0 && (
+              <div style={{ marginTop: 24 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#e67e22", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ background: "#e67e22", color: "white", borderRadius: "50%", width: 24, height: 24, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>{pendingReview.length}</span>
+                  Item{pendingReview.length > 1 ? "s" : ""} à confirmer — L'IA n'est pas certaine, choisissez le bon produit:
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {pendingReview.map(r => (
+                    <div key={r.id} style={{ background: C.card, border: `2px solid #e67e22`, borderRadius: 10, padding: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Texte original:</div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: C.text, fontStyle: "italic" }}>"{r.note}"</div>
+                          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>Quantité: <strong>{r.qty}</strong> · Confiance IA: <strong style={{ color: r.confidence >= 0.6 ? "#e67e22" : "#c0392b" }}>{Math.round(r.confidence * 100)}%</strong></div>
+                        </div>
+                        <button onClick={() => skipReviewItem(r.id)} style={{ padding: "4px 10px", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 5, color: C.textMuted, cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>
+                          Ignorer
+                        </button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(r.matches.length, 3)}, 1fr)`, gap: 8 }}>
+                        {r.matches.slice(0, 3).map((m, idx) => (
+                          <button key={m.code} onClick={() => confirmReviewItem(r.id, m.code)} style={{
+                            padding: "10px 12px", background: idx === 0 ? C.accent + "15" : C.inputBg,
+                            border: `2px solid ${idx === 0 ? C.accent : C.border}`,
+                            borderRadius: 8, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+                            transition: "all 0.1s"
+                          }}>
+                            {idx === 0 && <div style={{ fontSize: 9, fontWeight: 700, color: C.accent, marginBottom: 4, letterSpacing: 1 }}>MEILLEUR CHOIX</div>}
+                            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 3 }}>{m.product.name}</div>
+                            <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>#{m.code} · {m.product.dim}</div>
+                            <div style={{ fontSize: 11, padding: "1px 6px", borderRadius: 3, display: "inline-block", background: (CAT_COLORS[m.product.category] || C.accent) + "22", color: CAT_COLORS[m.product.category] || C.accent, fontWeight: 600 }}>{m.product.category}</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginTop: 4 }}>{fmt(m.product.sell)}</div>
+                            {m.reason && <div style={{ fontSize: 10, color: C.textMuted, marginTop: 4, fontStyle: "italic" }}>{m.reason}</div>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {invoiceItems.length > 0 && (
+                  <button onClick={() => { setPendingReview([]); setTab("invoice"); }} style={{ marginTop: 16, padding: "10px 20px", background: C.accent, border: "none", borderRadius: 6, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700 }}>
+                    Voir la facture ({invoiceItems.length} items confirmés) →
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 
