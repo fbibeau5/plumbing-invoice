@@ -122,6 +122,12 @@ export default function App() {
   const [selectedCat, setSelectedCat] = useState("ALL");
   const [themeName, setThemeName] = useState("blue");
   const [showThemes, setShowThemes] = useState(false);
+  const [customProducts, setCustomProducts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('customProducts') || '{}'); } catch(e) { return {}; }
+  });
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newProduct, setNewProduct] = useState({ code: '', name: '', dim: '', category: 'ROUGH ABS', cost: '' });
+  const [addError, setAddError] = useState('');
 
   const subtotal = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const tps = subtotal * TPS;
@@ -167,7 +173,33 @@ export default function App() {
     }
   };
 
-  const allProducts = Object.values(PRODUCTS);
+  const allProducts = Object.values({ ...PRODUCTS, ...customProducts });
+
+  const saveCustomProduct = () => {
+    setAddError('');
+    const code = newProduct.code.trim();
+    const cost = parseFloat(newProduct.cost);
+    if (!code) return setAddError('Code requis');
+    if (!newProduct.name.trim()) return setAddError('Nom requis');
+    if (!cost || cost <= 0) return setAddError('Coût invalide');
+    if (PRODUCTS[code] || customProducts[code]) return setAddError('Ce code existe déjà');
+    const margins = { 'ROUGH ABS': 0.30, 'ROUGH PEX': 0.30, 'FOND DE TERRE': 0.20, 'FINITION': 0.15 };
+    const margin = margins[newProduct.category] || 0.30;
+    const sell = parseFloat((cost / (1 - margin)).toFixed(2));
+    const product = { code, name: newProduct.name.trim(), dim: newProduct.dim.trim(), category: newProduct.category, cost, sell };
+    const updated = { ...customProducts, [code]: product };
+    setCustomProducts(updated);
+    localStorage.setItem('customProducts', JSON.stringify(updated));
+    setNewProduct({ code: '', name: '', dim: '', category: 'ROUGH ABS', cost: '' });
+    setShowAddForm(false);
+  };
+
+  const deleteCustomProduct = (code) => {
+    const updated = { ...customProducts };
+    delete updated[code];
+    setCustomProducts(updated);
+    localStorage.setItem('customProducts', JSON.stringify(updated));
+  };
   const cats = ["ALL", ...new Set(allProducts.map(p => p.category))];
   const filtered = allProducts.filter(p => {
     const matchCat = selectedCat === "ALL" || p.category === selectedCat;
@@ -404,7 +436,8 @@ export default function App() {
         {/* CATALOG TAB */}
         {tab === "catalog" && (
           <div>
-            <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+            {/* Search + filters + add button */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
               <input
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -424,36 +457,110 @@ export default function App() {
                   cursor: "pointer", fontSize: 12, fontFamily: "inherit", fontWeight: selectedCat === cat ? 600 : 400
                 }}>{cat}</button>
               ))}
+              <button onClick={() => { setShowAddForm(p => !p); setAddError(''); }} style={{
+                padding: "8px 16px", background: showAddForm ? C.accent : C.card,
+                border: `1px solid ${showAddForm ? C.accent : C.border}`,
+                borderRadius: 6, color: showAddForm ? "white" : C.accent,
+                cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: 600
+              }}>+ Nouveau produit</button>
             </div>
-            <div style={{ fontSize: 12, color: C.textLight, marginBottom: 14 }}>{filtered.length} produits</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
-              {filtered.map(p => (
-                <div key={p.code} style={{
-                  background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
-                  padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
-                }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, color: C.text }}>{p.name}</div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ fontSize: 11, color: C.textLight }}>#{p.code}</span>
-                      <span style={{ fontSize: 11, color: C.textLight }}>{p.dim}</span>
-                      <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: CAT_COLORS[p.category] + "22", color: CAT_COLORS[p.category], fontWeight: 600 }}>{p.category}</span>
+
+            {/* Add product form */}
+            {showAddForm && (
+              <div style={{ background: C.card, border: `2px solid ${C.accent}`, borderRadius: 10, padding: 20, marginBottom: 20, boxShadow: "0 2px 12px rgba(0,0,0,0.1)" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.accent, marginBottom: 16 }}>➕ Ajouter un nouveau produit</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+                  {[
+                    ["Code", "code", "ex: 5001"],
+                    ["Nom", "name", "ex: Coude 90 spécial"],
+                    ["Dimension", "dim", "ex: 2""],
+                  ].map(([label, field, placeholder]) => (
+                    <div key={field}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
+                      <input
+                        value={newProduct[field]}
+                        onChange={e => setNewProduct(p => ({ ...p, [field]: e.target.value }))}
+                        placeholder={placeholder}
+                        style={{ width: "100%", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "inherit", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                      />
                     </div>
+                  ))}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.5 }}>Catégorie</div>
+                    <select
+                      value={newProduct.category}
+                      onChange={e => setNewProduct(p => ({ ...p, category: e.target.value }))}
+                      style={{ width: "100%", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "inherit", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                    >
+                      {["ROUGH ABS", "ROUGH PEX", "FOND DE TERRE", "FINITION"].map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.accent, marginBottom: 6 }}>{fmt(p.sell)}</div>
-                    <button
-                      onClick={() => { addProduct(p.code); setTab("invoice"); }}
-                      style={{
-                        padding: "5px 12px", background: C.accent, border: "none",
-                        borderRadius: 5, color: "white", cursor: "pointer",
-                        fontFamily: "inherit", fontSize: 12, fontWeight: 600
-                      }}
-                    >+ Ajouter</button>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.5 }}>Coût ($)</div>
+                    <input
+                      type="number"
+                      value={newProduct.cost}
+                      onChange={e => setNewProduct(p => ({ ...p, cost: e.target.value }))}
+                      placeholder="ex: 12.50"
+                      style={{ width: "100%", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", color: C.text, fontFamily: "inherit", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                    />
                   </div>
                 </div>
-              ))}
+                {newProduct.cost && parseFloat(newProduct.cost) > 0 && (
+                  <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
+                    Prix de vente calculé: <strong style={{ color: C.accent }}>
+                      {fmt(parseFloat(newProduct.cost) / (1 - ({ 'ROUGH ABS': 0.30, 'ROUGH PEX': 0.30, 'FOND DE TERRE': 0.20, 'FINITION': 0.15 }[newProduct.category] || 0.30)))}
+                    </strong> (marge {({ 'ROUGH ABS': '30%', 'ROUGH PEX': '30%', 'FOND DE TERRE': '20%', 'FINITION': '15%' }[newProduct.category])})
+                  </div>
+                )}
+                {addError && <div style={{ color: "#c0392b", fontSize: 12, marginBottom: 10, background: "#fdecea", padding: "6px 10px", borderRadius: 5 }}>{addError}</div>}
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={saveCustomProduct} style={{ padding: "9px 20px", background: C.accent, border: "none", borderRadius: 6, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700 }}>
+                    ✓ Sauvegarder
+                  </button>
+                  <button onClick={() => { setShowAddForm(false); setAddError(''); }} style={{ padding: "9px 16px", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div style={{ fontSize: 12, color: C.textLight, marginBottom: 14 }}>{filtered.length} produits{Object.keys(customProducts).length > 0 && ` (dont ${Object.keys(customProducts).length} personnalisés)`}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+              {filtered.map(p => {
+                const isCustom = !!customProducts[String(p.code)];
+                return (
+                  <div key={p.code} style={{
+                    background: C.card, border: `1px solid ${isCustom ? C.accent : C.border}`, borderRadius: 8,
+                    padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, color: C.text }}>
+                        {p.name}
+                        {isCustom && <span style={{ fontSize: 9, background: C.accent, color: "white", borderRadius: 3, padding: "1px 5px", marginLeft: 6, fontWeight: 700 }}>CUSTOM</span>}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: C.textLight }}>#{p.code}</span>
+                        <span style={{ fontSize: 11, color: C.textLight }}>{p.dim}</span>
+                        <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: (CAT_COLORS[p.category] || C.accent) + "22", color: CAT_COLORS[p.category] || C.accent, fontWeight: 600 }}>{p.category}</span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: C.accent, marginBottom: 6 }}>{fmt(p.sell)}</div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {isCustom && (
+                          <button onClick={() => deleteCustomProduct(String(p.code))} style={{ padding: "4px 8px", background: "#fdecea", border: "1px solid #f5c6c6", borderRadius: 5, color: "#c0392b", cursor: "pointer", fontFamily: "inherit", fontSize: 11 }}>✕</button>
+                        )}
+                        <button
+                          onClick={() => { addProduct(p.code); setTab("invoice"); }}
+                          style={{ padding: "5px 12px", background: C.accent, border: "none", borderRadius: 5, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 600 }}
+                        >+ Ajouter</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
