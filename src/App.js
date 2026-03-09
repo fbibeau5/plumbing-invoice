@@ -551,10 +551,7 @@ export default function App() {
                             }}
                           />
                         </td>
-                        <td style={{ padding: "10px 16px", fontSize: 13, color: C.textMuted }}>
-                          <div>{fmt(item.product.sell)}</div>
-                          <div style={{ fontSize: 10, color: C.textLight, marginTop: 1 }}>coût: {fmt(item.product.cost)}</div>
-                        </td>
+                        <td style={{ padding: "10px 16px", fontSize: 13, color: C.textMuted }}>{fmt(item.product.sell)}</td>
                         <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 700, color: C.accent }}>{fmt(item.qty * item.product.sell)}</td>
                         <td style={{ padding: "10px 16px" }}>
                           <button onClick={() => removeItem(item.id)} style={{ background: "none", border: "none", color: C.textLight, cursor: "pointer", fontSize: 16, padding: 0 }}>✕</button>
