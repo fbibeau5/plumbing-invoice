@@ -370,6 +370,273 @@ export default function App() {
 
   const C = THEMES[themeName] || THEMES.blue;
 
+  const PASSWORD = "Nelson23$$";
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem('plomb_auth') === '1');
+  const [pwInput, setPwInput] = useState('');
+  const [pwError, setPwError] = useState(false);
+  const isMobile = window.innerWidth < 768;
+  const [mobileView, setMobileView] = useState('mobile'); // 'mobile' | 'desktop'
+
+  const handleLogin = () => {
+    if (pwInput === PASSWORD) {
+      sessionStorage.setItem('plomb_auth', '1');
+      setAuthed(true);
+      setPwError(false);
+    } else {
+      setPwError(true);
+      setPwInput('');
+    }
+  };
+
+  // ── LOGIN SCREEN ──────────────────────────────────────────────────────────
+  if (!authed) return (
+    <div style={{ minHeight: '100vh', background: '#0f1628', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui,-apple-system,sans-serif' }}>
+      <div style={{ background: '#1e2a4a', border: '1px solid #2d3d6a', borderRadius: 16, padding: '40px 32px', width: '100%', maxWidth: 360, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        <div style={{ width: 60, height: 60, background: '#1a6bb5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, margin: '0 auto 20px' }}>🔧</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: 'white', marginBottom: 4 }}>Plomb<span style={{ color: '#4a90d9' }}>Invoice</span></div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 2, marginBottom: 32 }}>ACCÈS SÉCURISÉ</div>
+        <input
+          type="password"
+          value={pwInput}
+          onChange={e => { setPwInput(e.target.value); setPwError(false); }}
+          onKeyDown={e => e.key === 'Enter' && handleLogin()}
+          placeholder="Mot de passe"
+          autoFocus
+          style={{ width: '100%', padding: '14px 16px', background: '#151e38', border: `2px solid ${pwError ? '#e74c3c' : '#2d3d6a'}`, borderRadius: 10, color: 'white', fontSize: 16, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
+        />
+        {pwError && <div style={{ color: '#e74c3c', fontSize: 13, marginBottom: 8 }}>Mot de passe incorrect</div>}
+        <button onClick={handleLogin} style={{ width: '100%', padding: 14, background: '#1a6bb5', border: 'none', borderRadius: 10, color: 'white', fontSize: 16, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', marginTop: 8 }}>
+          Connexion →
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
+  if (isMobile && mobileView === 'mobile') {
+    const mTabs = [
+      { id: 'parse', icon: '📋', label: 'Notes' },
+      { id: 'invoice', icon: '📦', label: `Liste (${invoiceItems.length})` },
+      { id: 'catalog', icon: '🗂️', label: 'Catalogue' },
+      { id: 'margins', icon: '📊', label: 'Marges' },
+    ];
+    return (
+      <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui,-apple-system,sans-serif', color: C.text, paddingBottom: 72 }}>
+        {/* Mobile Header */}
+        <div style={{ background: C.header, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 22 }}>🔧</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>Plomb<span style={{ color: C.accent }}>Invoice</span></span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setShowThemes(p => !p)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 16 }}>🎨</button>
+            <button onClick={() => setMobileView('desktop')} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>🖥️</button>
+            <button onClick={() => { sessionStorage.removeItem('plomb_auth'); setAuthed(false); }} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 12 }}>🔒</button>
+          </div>
+          {showThemes && (
+            <div style={{ position: 'absolute', right: 12, top: 56, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, zIndex: 100, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
+              {Object.entries(THEMES).map(([key, t]) => (
+                <button key={key} onClick={() => { setThemeName(key); setShowThemes(false); }} style={{ display: 'block', width: '100%', padding: '10px 12px', background: themeName === key ? C.accent : 'transparent', border: 'none', borderRadius: 6, color: themeName === key ? 'white' : C.text, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', textAlign: 'left', fontWeight: themeName === key ? 700 : 400 }}>{t.name}</button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Content */}
+        <div style={{ padding: '16px 14px' }}>
+
+          {/* PARSE TAB - mobile */}
+          {tab === 'parse' && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.accent, marginBottom: 10, textTransform: 'uppercase' }}>Coller la liste de matériaux</div>
+              <textarea
+                value={notesText}
+                onChange={e => setNotesText(e.target.value)}
+                placeholder="Collez votre liste ici..."
+                style={{ width: '100%', height: 220, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14, color: C.text, fontFamily: 'inherit', fontSize: 15, resize: 'none', outline: 'none', boxSizing: 'border-box' }}
+              />
+              <button onClick={handleParse} disabled={parsing} style={{ marginTop: 12, width: '100%', padding: 18, background: parsing ? C.textLight : C.accent, border: 'none', borderRadius: 12, color: 'white', fontSize: 17, fontFamily: 'inherit', cursor: parsing ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
+                {parsing ? '⏳ Analyse en cours...' : '⚡ Analyser avec l\'IA'}
+              </button>
+              {parseError && <div style={{ marginTop: 10, color: '#c0392b', fontSize: 13, background: '#fdecea', padding: '10px 14px', borderRadius: 8 }}>{parseError}</div>}
+
+              {/* Review panel mobile */}
+              {pendingReview.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#e67e22', marginBottom: 12 }}>
+                    ⚠️ {pendingReview.length} item{pendingReview.length > 1 ? 's' : ''} à confirmer
+                  </div>
+                  {pendingReview.map(r => (
+                    <div key={r.id} style={{ background: C.card, border: '2px solid #e67e22', borderRadius: 12, padding: 14, marginBottom: 12 }}>
+                      <div style={{ fontSize: 13, fontStyle: 'italic', color: C.text, marginBottom: 4 }}>"{r.note}"</div>
+                      <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>Qté: <strong>{r.qty}</strong> · Confiance: <strong style={{ color: '#e67e22' }}>{Math.round(r.confidence * 100)}%</strong></div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {r.matches.slice(0, 3).map((m, idx) => (
+                          <button key={m.code} onClick={() => confirmReviewItem(r.id, m.code)} style={{ padding: '12px 14px', background: idx === 0 ? C.accent + '18' : C.inputBg, border: `2px solid ${idx === 0 ? C.accent : C.border}`, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                            {idx === 0 && <div style={{ fontSize: 9, fontWeight: 700, color: C.accent, marginBottom: 3, letterSpacing: 1 }}>MEILLEUR CHOIX</div>}
+                            <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{m.product.name}</div>
+                            <div style={{ fontSize: 12, color: C.textMuted }}>#{m.code} · {m.product.dim} · <strong style={{ color: C.accent }}>{fmt(m.product.sell)}</strong></div>
+                          </button>
+                        ))}
+                        <button onClick={() => skipReviewItem(r.id)} style={{ padding: '10px', background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Ignorer</button>
+                      </div>
+                    </div>
+                  ))}
+                  {invoiceItems.length > 0 && (
+                    <button onClick={() => { setPendingReview([]); setTab('invoice'); }} style={{ width: '100%', padding: 14, background: C.accent, border: 'none', borderRadius: 10, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700 }}>
+                      Voir la liste ({invoiceItems.length} items) →
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* INVOICE TAB - mobile */}
+          {tab === 'invoice' && (
+            <div>
+              {/* Client info compact */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                {[['Client', clientName, setClientName], ['Description', jobDesc, setJobDesc], ['Facture #', invoiceNum, setInvoiceNum]].map(([label, val, setter]) => (
+                  <div key={label}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
+                    <input value={val} onChange={e => setter(e.target.value)} style={{ width: '100%', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '11px 14px', color: C.text, fontFamily: 'inherit', fontSize: 15, outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Items as cards */}
+              {invoiceItems.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: C.textLight, fontSize: 14 }}>
+                  Aucun article — analysez vos notes ou ajoutez depuis le catalogue
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                  {invoiceItems.map((item, idx) => (
+                    <div key={item.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.product.name}</div>
+                        <div style={{ fontSize: 11, color: C.textMuted }}>{item.product.dim} · <span style={{ color: CAT_COLORS[item.product.category], fontWeight: 600 }}>{item.product.category}</span></div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>{fmt(item.qty * item.product.sell)}</div>
+                          <div style={{ fontSize: 11, color: C.textMuted }}>{fmt(item.product.sell)} × </div>
+                        </div>
+                        <input
+                          type="number" value={item.qty} onChange={e => updateQty(item.id, e.target.value)} onBlur={e => commitQty(item.id, e.target.value)}
+                          step="0.25" min="0" inputMode="decimal"
+                          style={{ width: 54, background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '6px 4px', color: C.text, fontFamily: 'inherit', fontSize: 15, textAlign: 'center', outline: 'none' }}
+                        />
+                        <button onClick={() => removeItem(item.id)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: 20, padding: '4px', lineHeight: 1 }}>✕</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Totals */}
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                {[['Sous-total', subtotal], ['TPS (5%)', tps], ['TVQ (9.975%)', tvq]].map(([label, val]) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${C.rowBorder}`, fontSize: 14, color: C.textMuted }}>
+                    <span>{label}</span><span>{fmt(val)}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, fontSize: 22, fontWeight: 700 }}>
+                  <span>TOTAL</span><span style={{ color: C.accent }}>{fmt(total)}</span>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button onClick={() => setTab('catalog')} style={{ padding: 15, background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 10, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 600 }}>
+                  + Ajouter depuis catalogue
+                </button>
+                <button onClick={saveToWeeklyReport} disabled={invoiceItems.length === 0} style={{ padding: 15, background: invoiceItems.length === 0 ? C.inputBg : '#16a34a', border: 'none', borderRadius: 10, color: invoiceItems.length === 0 ? C.textLight : 'white', cursor: invoiceItems.length === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}>
+                  📊 Ajouter au rapport semaine
+                </button>
+                <button onClick={printInvoice} style={{ padding: 15, background: C.accent, border: 'none', borderRadius: 10, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}>
+                  🖨️ Imprimer / PDF
+                </button>
+                {saveStatus && <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 600, color: saveStatus.startsWith('✅') ? '#16a34a' : '#c0392b' }}>{saveStatus}</div>}
+              </div>
+            </div>
+          )}
+
+          {/* CATALOG TAB - mobile */}
+          {tab === 'catalog' && (
+            <div>
+              <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Rechercher..." style={{ width: '100%', background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 14px', color: C.text, fontFamily: 'inherit', fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: 10 }} />
+              <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 12, WebkitOverflowScrolling: 'touch' }}>
+                {['ALL', 'ROUGH ABS', 'ROUGH PEX', 'FOND DE TERRE', 'FINITION'].map(cat => (
+                  <button key={cat} onClick={() => setSelectedCat(cat)} style={{ padding: '8px 14px', background: selectedCat === cat ? (CAT_COLORS[cat] || C.accent) : C.card, border: `1px solid ${selectedCat === cat ? (CAT_COLORS[cat] || C.accent) : C.border}`, borderRadius: 20, color: selectedCat === cat ? 'white' : C.textMuted, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{cat}</button>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: C.textLight, marginBottom: 10 }}>{filtered.length} produits</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {filtered.map(p => {
+                  const isCustom = !!customProducts[String(p.code)];
+                  return (
+                    <div key={p.code} style={{ background: C.card, border: `1px solid ${isCustom ? C.accent : C.border}`, borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 2 }}>
+                          {p.name}
+                          {isCustom && <span style={{ fontSize: 9, background: C.accent, color: 'white', borderRadius: 3, padding: '1px 5px', marginLeft: 6, fontWeight: 700 }}>CUSTOM</span>}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.textMuted }}>#{p.code} · {p.dim}</div>
+                        <div style={{ fontSize: 11, color: C.textLight }}>coût: {fmt(p.cost)}</div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: C.accent }}>{fmt(p.sell)}</div>
+                        <button onClick={() => { addProduct(p.code); setTab('invoice'); }} style={{ padding: '8px 16px', background: C.accent, border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700 }}>+ Ajouter</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* MARGINS TAB - mobile */}
+          {tab === 'margins' && (() => {
+            const cats = ['ROUGH ABS', 'ROUGH PEX', 'FOND DE TERRE', 'FINITION'];
+            return (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Marges par catégorie</div>
+                {cats.map(cat => {
+                  const current = categoryMargins[cat] ?? DEFAULT_MARGINS[cat];
+                  return (
+                    <div key={cat} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: '50%', background: CAT_COLORS[cat], display: 'inline-block' }} />
+                          <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{cat}</span>
+                        </div>
+                        <span style={{ fontSize: 20, fontWeight: 700, color: CAT_COLORS[cat] }}>{Math.round(current * 100)}%</span>
+                      </div>
+                      <input type="range" min="1" max="60" value={Math.round(current * 100)} onChange={e => saveCategoryMargins({ ...categoryMargins, [cat]: parseFloat(e.target.value) / 100 })} style={{ width: '100%', accentColor: CAT_COLORS[cat], cursor: 'pointer' }} />
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Bottom Nav */}
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.header, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', zIndex: 50 }}>
+          {mTabs.map(({ id, icon, label }) => (
+            <button key={id} onClick={() => setTab(id)} style={{ flex: 1, padding: '10px 4px 12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+              <span style={{ fontSize: 22 }}>{icon}</span>
+              <span style={{ fontSize: 10, color: tab === id ? C.accent : 'rgba(255,255,255,0.5)', fontWeight: tab === id ? 700 : 400 }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "system-ui, -apple-system, sans-serif", color: C.text }}>
       {/* Header */}
@@ -391,6 +658,10 @@ export default function App() {
                 cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: tab === id ? 600 : 400
               }}>{label}</button>
             ))}
+            {isMobile && (
+              <button onClick={() => setMobileView('mobile')} style={{ padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, color: "white", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>📱</button>
+            )}
+            <button onClick={() => { sessionStorage.removeItem('plomb_auth'); setAuthed(false); }} style={{ padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, color: "white", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>🔒</button>
             <div style={{ position: "relative", marginLeft: 8 }}>
               <button onClick={() => setShowThemes(p => !p)} style={{
                 padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
