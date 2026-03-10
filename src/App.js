@@ -632,19 +632,75 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {filtered.map(p => {
                   const isCustom = !!customProducts[String(p.code)];
-                  return (
-                    <div key={p.code} style={{ background: C.card, border: `1px solid ${isCustom ? C.accent : C.border}`, borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 2 }}>
-                          {p.name}
-                          {isCustom && <span style={{ fontSize: 9, background: C.accent, color: 'white', borderRadius: 3, padding: '1px 5px', marginLeft: 6, fontWeight: 700 }}>CUSTOM</span>}
+                  const isEditing = editingCode === String(p.code);
+
+                  if (isEditing) return (
+                    <div key={p.code} style={{ background: C.card, border: `2px solid ${C.accent}`, borderRadius: 12, padding: 16 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 12 }}>✏️ MODIFIER #{p.code}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                        {[['Nom', 'name', 'text'], ['Dimension', 'dim', 'text'], ['Coût ($)', 'cost', 'number']].map(([label, field, type]) => (
+                          <div key={field}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, marginBottom: 4, textTransform: 'uppercase' }}>{label}</div>
+                            <input type={type} value={editForm[field]} onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))}
+                              style={{ width: '100%', background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', color: C.text, fontFamily: 'inherit', fontSize: 16, outline: 'none', boxSizing: 'border-box' }} />
+                          </div>
+                        ))}
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, marginBottom: 4, textTransform: 'uppercase' }}>Catégorie</div>
+                          <select value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
+                            style={{ width: '100%', background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', color: C.text, fontFamily: 'inherit', fontSize: 16, outline: 'none' }}>
+                            {['ROUGH ABS', 'ROUGH PEX', 'FOND DE TERRE', 'FINITION'].map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
                         </div>
-                        <div style={{ fontSize: 11, color: C.textMuted }}>#{p.code} · {p.dim}</div>
-                        <div style={{ fontSize: 11, color: C.textLight }}>coût: {fmt(p.cost)}</div>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, marginBottom: 4, textTransform: 'uppercase' }}>
+                            Marge individuelle (%) — laisser vide pour catégorie ({Math.round((categoryMargins[editForm.category] ?? DEFAULT_MARGINS[editForm.category]) * 100)}%)
+                          </div>
+                          <input type="number" min="1" max="60"
+                            placeholder={`${Math.round((categoryMargins[editForm.category] ?? DEFAULT_MARGINS[editForm.category]) * 100)} (catégorie)`}
+                            value={editForm.overrideMargin ?? ''}
+                            onChange={e => setEditForm(f => ({ ...f, overrideMargin: e.target.value === '' ? null : e.target.value }))}
+                            style={{ width: '100%', background: C.inputBg, border: `1px solid ${C.accent}`, borderRadius: 8, padding: '10px 12px', color: C.text, fontFamily: 'inherit', fontSize: 16, outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: C.accent }}>{fmt(p.sell)}</div>
-                        <button onClick={() => { addProduct(p.code); setTab('invoice'); }} style={{ padding: '8px 16px', background: C.accent, border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700 }}>+ Ajouter</button>
+                      {editForm.cost && parseFloat(editForm.cost) > 0 && (() => {
+                        const overrideMargin = editForm.overrideMargin ? parseFloat(editForm.overrideMargin) / 100 : null;
+                        const effectiveMargin = overrideMargin ?? (categoryMargins[editForm.category] ?? DEFAULT_MARGINS[editForm.category]);
+                        return (
+                          <div style={{ fontSize: 12, color: C.textMuted, background: C.inputBg, padding: '8px 12px', borderRadius: 8, marginBottom: 12 }}>
+                            Prix vente: <strong style={{ color: C.accent }}>{fmt(getSellPrice(parseFloat(editForm.cost), editForm.category, overrideMargin))}</strong>
+                            <span style={{ marginLeft: 8 }}>marge: <strong style={{ color: overrideMargin ? '#e67e22' : C.textMuted }}>{Math.round(effectiveMargin * 100)}%{overrideMargin ? ' (individuelle)' : ' (catégorie)'}</strong></span>
+                          </div>
+                        );
+                      })()}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => saveEdit(String(p.code))} style={{ flex: 1, padding: 12, background: C.accent, border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, touchAction: 'manipulation' }}>✓ Sauver</button>
+                        <button onClick={() => setEditingCode(null)} style={{ flex: 1, padding: 12, background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, touchAction: 'manipulation' }}>Annuler</button>
+                      </div>
+                    </div>
+                  );
+
+                  return (
+                    <div key={p.code} style={{ background: C.card, border: `1px solid ${isCustom ? C.accent : C.border}`, borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 2 }}>
+                            {p.name}
+                            {isCustom && <span style={{ fontSize: 9, background: C.accent, color: 'white', borderRadius: 3, padding: '1px 5px', marginLeft: 6, fontWeight: 700 }}>CUSTOM</span>}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.textMuted }}>#{p.code} · {p.dim}</div>
+                          <div style={{ fontSize: 11, color: C.textLight }}>coût: {fmt(p.cost)}</div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                          <div style={{ fontSize: 16, fontWeight: 700, color: C.accent }}>{fmt(p.sell)}</div>
+                          <button onClick={() => { addProduct(p.code); setTab('invoice'); }} style={{ padding: '8px 16px', background: C.accent, border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, touchAction: 'manipulation' }}>+ Ajouter</button>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+                        <button onClick={() => startEdit(p)} style={{ flex: 1, padding: '8px', background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 8, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>✏️ Modifier</button>
+                        {isCustom && (
+                          <button onClick={() => deleteCustomProduct(String(p.code))} style={{ padding: '8px 16px', background: '#fdecea', border: '1px solid #f5c6c6', borderRadius: 8, color: '#c0392b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>✕ Supprimer</button>
+                        )}
                       </div>
                     </div>
                   );
