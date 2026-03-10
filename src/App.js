@@ -120,6 +120,12 @@ const THEMES = {
     accent: "#4a90d9", text: "#e8eeff", textMuted: "#8899cc", textLight: "#556699",
     inputBg: "#151e38", rowAlt: "#1c2642", rowBorder: "#253357",
   },
+  girlypop: {
+    name: "🌸 Girlypop",
+    bg: "#fff0f6", header: "#d63384", card: "#ffffff", border: "#f9a8d4",
+    accent: "#e91e8c", text: "#4a0028", textMuted: "#a0426e", textLight: "#c77fa0",
+    inputBg: "#fff5f9", rowAlt: "#fff0f6", rowBorder: "#fce4ec",
+  },
 };
 
 export default function App() {
