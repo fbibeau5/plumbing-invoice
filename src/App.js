@@ -461,7 +461,12 @@ export default function App() {
           {/* PARSE TAB - mobile */}
           {tab === 'parse' && (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.accent, marginBottom: 10, textTransform: 'uppercase' }}>Coller la liste de matériaux</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: C.accent, textTransform: 'uppercase' }}>Coller la liste de matériaux</div>
+                {notesText.trim() && (
+                  <button onClick={() => setNotesText('')} style={{ padding: '5px 12px', background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>🗑️ Effacer</button>
+                )}
+              </div>
               <textarea
                 value={notesText}
                 onChange={e => setNotesText(e.target.value)}
@@ -710,7 +715,12 @@ export default function App() {
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: C.accent, marginBottom: 10, textTransform: "uppercase" }}>Notes Apple / Takeoff</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: C.accent, textTransform: "uppercase" }}>Notes Apple / Takeoff</div>
+                  {notesText.trim() && (
+                    <button onClick={() => setNotesText('')} style={{ padding: "4px 12px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>🗑️ Effacer</button>
+                  )}
+                </div>
                 <textarea
                   value={notesText}
                   onChange={e => setNotesText(e.target.value)}
