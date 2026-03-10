@@ -590,6 +590,44 @@ export default function App() {
                   <button key={cat} onClick={() => setSelectedCat(cat)} style={{ padding: '8px 14px', background: selectedCat === cat ? (CAT_COLORS[cat] || C.accent) : C.card, border: `1px solid ${selectedCat === cat ? (CAT_COLORS[cat] || C.accent) : C.border}`, borderRadius: 20, color: selectedCat === cat ? 'white' : C.textMuted, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{cat}</button>
                 ))}
               </div>
+
+              {/* Bouton + Nouveau produit - mobile */}
+              <button onClick={() => { setShowAddForm(p => !p); setAddError(''); }} style={{ width: '100%', padding: '12px', background: showAddForm ? C.accent : C.card, border: `1px solid ${showAddForm ? C.accent : C.border}`, borderRadius: 10, color: showAddForm ? 'white' : C.accent, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, marginBottom: 12, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
+                {showAddForm ? '✕ Fermer' : '➕ Nouveau produit'}
+              </button>
+
+              {/* Formulaire ajout produit - mobile */}
+              {showAddForm && (
+                <div style={{ background: C.card, border: `2px solid ${C.accent}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginBottom: 14 }}>Ajouter un nouveau produit</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                    {[['Code', 'code', 'ex: 5001'], ['Nom', 'name', 'ex: Coude 90 spécial'], ['Dimension', 'dim', 'ex: 2']].map(([label, field, placeholder]) => (
+                      <div key={field}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+                        <input value={newProduct[field]} onChange={e => setNewProduct(p => ({ ...p, [field]: e.target.value }))} placeholder={placeholder} style={{ width: '100%', background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', color: C.text, fontFamily: 'inherit', fontSize: 16, outline: 'none', boxSizing: 'border-box' }} />
+                      </div>
+                    ))}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Catégorie</div>
+                      <select value={newProduct.category} onChange={e => setNewProduct(p => ({ ...p, category: e.target.value }))} style={{ width: '100%', background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', color: C.text, fontFamily: 'inherit', fontSize: 16, outline: 'none', boxSizing: 'border-box' }}>
+                        {['ROUGH ABS', 'ROUGH PEX', 'FOND DE TERRE', 'FINITION'].map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Coût ($)</div>
+                      <input type="number" value={newProduct.cost} onChange={e => setNewProduct(p => ({ ...p, cost: e.target.value }))} placeholder="ex: 12.50" inputMode="decimal" style={{ width: '100%', background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', color: C.text, fontFamily: 'inherit', fontSize: 16, outline: 'none', boxSizing: 'border-box' }} />
+                    </div>
+                  </div>
+                  {newProduct.cost && parseFloat(newProduct.cost) > 0 && (
+                    <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10 }}>
+                      Prix de vente: <strong style={{ color: C.accent }}>{fmt(getSellPrice(parseFloat(newProduct.cost), newProduct.category))}</strong> (marge {Math.round((categoryMargins[newProduct.category] ?? DEFAULT_MARGINS[newProduct.category]) * 100)}%)
+                    </div>
+                  )}
+                  {addError && <div style={{ color: '#c0392b', fontSize: 13, background: '#fdecea', padding: '8px 12px', borderRadius: 6, marginBottom: 10 }}>{addError}</div>}
+                  <button onClick={saveCustomProduct} style={{ width: '100%', padding: 14, background: C.accent, border: 'none', borderRadius: 10, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 700, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>✓ Sauvegarder</button>
+                </div>
+              )}
+
               <div style={{ fontSize: 11, color: C.textLight, marginBottom: 10 }}>{filtered.length} produits</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {filtered.map(p => {
