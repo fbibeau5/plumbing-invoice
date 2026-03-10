@@ -159,6 +159,7 @@ export default function App() {
   const [listHistory, setListHistory] = useState(() => {
     try { return JSON.parse(localStorage.getItem('listHistory') || '[]'); } catch(e) { return []; }
   });
+  const [historySync, setHistorySync] = useState(null); // null | 'sync' | 'ok' | 'offline'
 
   const subtotal = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const tps = subtotal * TPS;
@@ -188,15 +189,27 @@ export default function App() {
       subtotal: sub,
       total: sub * (1 + TPS + TVQ),
     };
-    const updated = [entry, ...listHistory].slice(0, 50); // garder 50 dernières
+    const updated = [entry, ...listHistory].slice(0, 50);
     setListHistory(updated);
     localStorage.setItem('listHistory', JSON.stringify(updated));
+    // Sync vers le serveur (tous les appareils)
+    fetch('/api/history-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add', entry }),
+    }).catch(() => {}); // hors-ligne : sauvegardé localement quand même
   };
 
   const deleteFromHistory = (id) => {
     const updated = listHistory.filter(e => e.id !== id);
     setListHistory(updated);
     localStorage.setItem('listHistory', JSON.stringify(updated));
+    // Sync suppression vers le serveur
+    fetch('/api/history-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', id }),
+    }).catch(() => {});
   };
 
   const loadFromHistory = (entry) => {
@@ -500,6 +513,30 @@ export default function App() {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Sync historique depuis le serveur au démarrage (fusion local + serveur)
+  useEffect(() => {
+    setHistorySync('sync');
+    fetch('/api/history-data')
+      .then(r => r.ok ? r.json() : null)
+      .then(serverHistory => {
+        if (!Array.isArray(serverHistory)) { setHistorySync('offline'); return; }
+        setListHistory(prev => {
+          const map = new Map();
+          // On met le local en premier pour conserver l'ordre si même id
+          [...prev, ...serverHistory].forEach(e => { if (e && e.id) map.set(e.id, e); });
+          const merged = [...map.values()]
+            .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt))
+            .slice(0, 50);
+          localStorage.setItem('listHistory', JSON.stringify(merged));
+          return merged;
+        });
+        setHistorySync('ok');
+        setTimeout(() => setHistorySync(null), 2000);
+      })
+      .catch(() => { setHistorySync('offline'); setTimeout(() => setHistorySync(null), 3000); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleLogin = () => {
@@ -826,8 +863,13 @@ export default function App() {
           {/* HISTORY TAB - mobile */}
           {tab === 'history' && (
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>
-                🕐 Listes sauvegardées ({listHistory.length})
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
+                  🕐 Listes sauvegardées ({listHistory.length})
+                </div>
+                {historySync === 'sync' && <div style={{ fontSize: 11, color: C.textMuted }}>⟳ Sync…</div>}
+                {historySync === 'ok' && <div style={{ fontSize: 11, color: '#16a34a' }}>✓ Synchronisé</div>}
+                {historySync === 'offline' && <div style={{ fontSize: 11, color: '#c0392b' }}>📵 Hors-ligne</div>}
               </div>
               {listHistory.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 20px', color: C.textLight, fontSize: 14 }}>
@@ -1190,8 +1232,13 @@ export default function App() {
         {/* HISTORY TAB */}
         {tab === "history" && (
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 20 }}>
-              🕐 Listes sauvegardées ({listHistory.length})
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>
+                🕐 Listes sauvegardées ({listHistory.length})
+              </div>
+              {historySync === 'sync' && <div style={{ fontSize: 12, color: C.textMuted }}>⟳ Synchronisation…</div>}
+              {historySync === 'ok' && <div style={{ fontSize: 12, color: '#16a34a' }}>✓ Synchronisé avec tous les appareils</div>}
+              {historySync === 'offline' && <div style={{ fontSize: 12, color: '#c0392b' }}>📵 Hors-ligne — local seulement</div>}
             </div>
             {listHistory.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: C.textLight, fontSize: 14 }}>
