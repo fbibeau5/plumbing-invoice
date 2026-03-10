@@ -132,6 +132,7 @@ export default function App() {
   const [tab, setTab] = useState("parse");
   const [notesText, setNotesText] = useState(() => localStorage.getItem('notesText') ?? SAMPLE_NOTES);
   useEffect(() => { localStorage.setItem('notesText', notesText); }, [notesText]);
+  useEffect(() => { localStorage.setItem('themeName', themeName); }, [themeName]);
   const [invoiceItems, setInvoiceItems] = useState([]);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState(null);
@@ -140,7 +141,7 @@ export default function App() {
   const [invoiceNum, setInvoiceNum] = useState("001");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCat, setSelectedCat] = useState("ALL");
-  const [themeName, setThemeName] = useState("blue");
+  const [themeName, setThemeName] = useState(() => localStorage.getItem('themeName') || "blue");
   const [showThemes, setShowThemes] = useState(false);
   const [customProducts, setCustomProducts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('customProducts') || '{}'); } catch(e) { return {}; }
@@ -160,6 +161,7 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem('listHistory') || '[]'); } catch(e) { return []; }
   });
   const [historySync, setHistorySync] = useState(null); // null | 'sync' | 'ok' | 'offline'
+  const [catalogSync, setCatalogSync] = useState(null);
 
   const subtotal = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const tps = subtotal * TPS;
@@ -344,6 +346,12 @@ export default function App() {
     localStorage.setItem('customProducts', JSON.stringify(updated));
     setNewProduct({ code: '', name: '', dim: '', category: 'ROUGH ABS', cost: '' });
     setShowAddForm(false);
+    // Sync vers le serveur (tous les appareils)
+    fetch('/api/catalog-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save', product }),
+    }).catch(() => {});
   };
 
   const startEdit = (p) => {
@@ -354,12 +362,22 @@ export default function App() {
   const saveEdit = (code) => {
     const cost = parseFloat(editForm.cost);
     if (!editForm.name.trim() || !cost || cost <= 0) return;
-    const overrideMargin = editForm.overrideMargin != null ? parseFloat(editForm.overrideMargin) : null;
+    // overrideMargin is stored as a percentage string (e.g. "25" = 25%) — divide by 100 to get decimal
+    const overrideMargin = editForm.overrideMargin !== '' && editForm.overrideMargin != null
+      ? parseFloat(editForm.overrideMargin) / 100
+      : null;
     const sell = getSellPrice(cost, editForm.category, overrideMargin);
-    const updated = { ...customProducts, [code]: { ...customProducts[code], code: parseInt(code), name: editForm.name.trim(), dim: editForm.dim.trim(), category: editForm.category, cost, sell, overrideMargin } };
+    const product = { ...customProducts[code], code: parseInt(code), name: editForm.name.trim(), dim: editForm.dim.trim(), category: editForm.category, cost, sell, overrideMargin };
+    const updated = { ...customProducts, [code]: product };
     setCustomProducts(updated);
     localStorage.setItem('customProducts', JSON.stringify(updated));
     setEditingCode(null);
+    // Sync vers le serveur (tous les appareils)
+    fetch('/api/catalog-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save', product }),
+    }).catch(() => {});
   };
 
   const deleteCustomProduct = (code) => {
@@ -367,6 +385,12 @@ export default function App() {
     delete updated[code];
     setCustomProducts(updated);
     localStorage.setItem('customProducts', JSON.stringify(updated));
+    // Sync suppression vers le serveur
+    fetch('/api/catalog-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', code }),
+    }).catch(() => {});
   };
   const cats = ["ALL", ...new Set(allProducts.map(p => p.category))];
   const filtered = allProducts.filter(p => {
@@ -458,7 +482,7 @@ export default function App() {
       </style>
     </head><body>
       <div class="header">
-        <h1>🔧 PlombInvoice</h1>
+        <h1>🔧 Révolution Facturation</h1>
         <p><strong>Facture #${invoiceNum}</strong></p>
         ${clientName ? `<p>Client: ${clientName}</p>` : ''}
         ${jobDesc ? `<p>Travaux: ${jobDesc}</p>` : ''}
@@ -515,6 +539,35 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Sync catalogue personnalisé depuis le serveur au démarrage
+  useEffect(() => {
+    setCatalogSync('sync');
+    fetch('/api/catalog-data')
+      .then(r => r.ok ? r.json() : null)
+      .then(serverCatalog => {
+        if (!serverCatalog || typeof serverCatalog !== 'object') { setCatalogSync('offline'); return; }
+        setCustomProducts(prev => {
+          // Fusion: union de local + serveur. Local garde la priorité (modifications non syncées)
+          const merged = { ...serverCatalog, ...prev };
+          localStorage.setItem('customProducts', JSON.stringify(merged));
+          // Push les produits locaux qui ne sont pas encore sur le serveur
+          const localOnly = Object.values(prev).filter(p => !serverCatalog[String(p.code)]);
+          localOnly.forEach(product => {
+            fetch('/api/catalog-data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'save', product }),
+            }).catch(() => {});
+          });
+          return merged;
+        });
+        setCatalogSync('ok');
+        setTimeout(() => setCatalogSync(null), 2000);
+      })
+      .catch(() => { setCatalogSync('offline'); setTimeout(() => setCatalogSync(null), 3000); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Sync historique depuis le serveur au démarrage (fusion local + serveur)
   useEffect(() => {
     setHistorySync('sync');
@@ -555,7 +608,7 @@ export default function App() {
     <div style={{ minHeight: '100vh', background: '#0f1628', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui,-apple-system,sans-serif' }}>
       <div style={{ background: '#1e2a4a', border: '1px solid #2d3d6a', borderRadius: 16, padding: '40px 32px', width: '100%', maxWidth: 360, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ width: 60, height: 60, background: '#1a6bb5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, margin: '0 auto 20px' }}>🔧</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: 'white', marginBottom: 4 }}>Plomb<span style={{ color: '#4a90d9' }}>Invoice</span></div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 4 }}>Révolution<span style={{ color: '#4a90d9' }}> Facturation</span></div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 2, marginBottom: 32 }}>ACCÈS SÉCURISÉ</div>
         <input
           type="password"
@@ -590,7 +643,7 @@ export default function App() {
         <div style={{ background: C.header, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 22 }}>🔧</span>
-            <span style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>Plomb<span style={{ color: C.accent }}>Invoice</span></span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>Révolution<span style={{ color: C.accent }}> Facturation</span></span>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setShowThemes(p => !p)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 16 }}>🎨</button>
@@ -727,6 +780,11 @@ export default function App() {
                 <button onClick={printInvoice} style={{ padding: 15, background: C.accent, border: 'none', borderRadius: 10, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}>
                   🖨️ Imprimer / PDF
                 </button>
+                {invoiceItems.length > 0 && (
+                  <button onClick={() => { if (window.confirm('Effacer la liste actuelle et commencer une nouvelle facture?')) { setInvoiceItems([]); setClientName(''); setJobDesc(''); setInvoiceNum('001'); setTab('parse'); } }} style={{ padding: 12, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 10, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>
+                    🗑️ Nouvelle facture
+                  </button>
+                )}
                 {saveStatus && <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 600, color: saveStatus.startsWith('✅') ? '#16a34a' : '#c0392b' }}>{saveStatus}</div>}
               </div>
             </div>
@@ -741,6 +799,15 @@ export default function App() {
                   <button key={cat} onClick={() => setSelectedCat(cat)} style={{ padding: '8px 14px', background: selectedCat === cat ? (CAT_COLORS[cat] || C.accent) : C.card, border: `1px solid ${selectedCat === cat ? (CAT_COLORS[cat] || C.accent) : C.border}`, borderRadius: 20, color: selectedCat === cat ? 'white' : C.textMuted, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{cat}</button>
                 ))}
               </div>
+
+              {/* Sync status catalogue - mobile */}
+              {catalogSync && (
+                <div style={{ fontSize: 11, marginBottom: 8, color: catalogSync === 'ok' ? '#16a34a' : catalogSync === 'offline' ? '#c0392b' : C.textMuted }}>
+                  {catalogSync === 'sync' && '⟳ Sync catalogue…'}
+                  {catalogSync === 'ok' && '✓ Catalogue synchronisé'}
+                  {catalogSync === 'offline' && '📵 Catalogue hors-ligne'}
+                </div>
+              )}
 
               {/* Bouton + Nouveau produit - mobile */}
               <button onClick={() => { setShowAddForm(p => !p); setAddError(''); }} style={{ width: '100%', padding: '12px', background: showAddForm ? C.accent : C.card, border: `1px solid ${showAddForm ? C.accent : C.border}`, borderRadius: 10, color: showAddForm ? 'white' : C.accent, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, marginBottom: 12, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
@@ -963,7 +1030,7 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 36, height: 36, background: C.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🔧</div>
             <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "white", letterSpacing: 0.5 }}>Plomb<span style={{ color: C.accent }}>Invoice</span></div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "white", letterSpacing: 0.5 }}>Révolution<span style={{ color: C.accent }}> Facturation</span></div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", letterSpacing: 2 }}>SYSTÈME DE FACTURATION</div>
             </div>
           </div>
@@ -1224,6 +1291,11 @@ export default function App() {
               <button onClick={printInvoice} style={{ padding: "10px 24px", background: C.accent, border: "none", borderRadius: 6, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 6px rgba(26,107,181,0.3)" }}>
                 🖨️ Imprimer / PDF
               </button>
+              {invoiceItems.length > 0 && (
+                <button onClick={() => { if (window.confirm('Effacer la liste actuelle et commencer une nouvelle facture?')) { setInvoiceItems([]); setClientName(''); setJobDesc(''); setInvoiceNum('001'); setTab('parse'); } }} style={{ padding: "10px 16px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
+                  🗑️ Nouvelle facture
+                </button>
+              )}
               {saveStatus && <div style={{ fontSize: 13, fontWeight: 600, color: saveStatus.startsWith('✅') ? "#16a34a" : "#c0392b" }}>{saveStatus}</div>}
             </div>
           </div>
@@ -1375,7 +1447,12 @@ export default function App() {
               </div>
             )}
 
-            <div style={{ fontSize: 12, color: C.textLight, marginBottom: 14 }}>{filtered.length} produits{Object.keys(customProducts).length > 0 && ` (dont ${Object.keys(customProducts).length} personnalisés)`}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: C.textLight }}>{filtered.length} produits{Object.keys(customProducts).length > 0 && ` (dont ${Object.keys(customProducts).length} personnalisés)`}</div>
+              {catalogSync === 'sync' && <div style={{ fontSize: 12, color: C.textMuted }}>⟳ Sync catalogue…</div>}
+              {catalogSync === 'ok' && <div style={{ fontSize: 12, color: '#16a34a' }}>✓ Catalogue synchronisé</div>}
+              {catalogSync === 'offline' && <div style={{ fontSize: 12, color: '#c0392b' }}>📵 Hors-ligne</div>}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
               {filtered.map(p => {
                 const isCustom = !!customProducts[String(p.code)];
