@@ -20,6 +20,12 @@ html, body {
   overflow-x: hidden;
 }
 
+@media print {
+  .punch-bg {
+    display: none !important;
+  }
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
