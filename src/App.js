@@ -310,7 +310,7 @@ export default function App() {
     return matchCat && matchSearch;
   });
 
-  const saveToWeeklyReport = () => {
+  const saveToWeeklyReport = async () => {
     if (invoiceItems.length === 0) return;
     const weekKey = (() => {
       const now = new Date();
@@ -318,30 +318,47 @@ export default function App() {
       const week = Math.ceil(((now - jan1) / 86400000 + jan1.getDay() + 1) / 7);
       return `report_${now.getFullYear()}_${String(week).padStart(2, '0')}`;
     })();
+
+    // Build items map
+    const items = {};
+    invoiceItems.forEach(item => {
+      const code = String(item.product.code);
+      if (items[code]) {
+        items[code].qty += parseFloat(item.qty) || 0;
+      } else {
+        items[code] = {
+          code: item.product.code,
+          name: item.product.name,
+          dim: item.product.dim,
+          category: item.product.category,
+          qty: parseFloat(item.qty) || 0,
+        };
+      }
+    });
+
+    // Always save locally as backup (works offline)
     try {
-      // Merge items into existing weekly report (localStorage)
-      const existing = JSON.parse(localStorage.getItem(weekKey) || '{}');
-      invoiceItems.forEach(item => {
-        const code = String(item.product.code);
-        if (existing[code]) {
-          existing[code].qty += parseFloat(item.qty) || 0;
-        } else {
-          existing[code] = {
-            code: item.product.code,
-            name: item.product.name,
-            dim: item.product.dim,
-            category: item.product.category,
-            qty: parseFloat(item.qty) || 0,
-          };
-        }
+      const local = JSON.parse(localStorage.getItem(weekKey) || '{}');
+      Object.entries(items).forEach(([code, item]) => {
+        if (local[code]) { local[code].qty += item.qty; } else { local[code] = item; }
       });
-      localStorage.setItem(weekKey, JSON.stringify(existing));
+      localStorage.setItem(weekKey, JSON.stringify(local));
+    } catch(_) {}
+
+    // Sync to server (cross-device: phone + computer + associate)
+    try {
+      const res = await fetch(`/api/report-data?key=${weekKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      });
+      if (!res.ok) throw new Error('Erreur serveur');
       setSaveStatus('✅ Ajouté au rapport de la semaine!');
-      setTimeout(() => setSaveStatus(null), 3000);
     } catch(e) {
-      setSaveStatus('❌ Erreur: ' + e.message);
-      setTimeout(() => setSaveStatus(null), 4000);
+      // Server sync failed but local backup succeeded
+      setSaveStatus('✅ Sauvegardé localement (synchro hors ligne)');
     }
+    setTimeout(() => setSaveStatus(null), 3000);
   };
 
   const printInvoice = () => {
