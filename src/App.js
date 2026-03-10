@@ -155,6 +155,9 @@ export default function App() {
   });
   const [showMarginSettings, setShowMarginSettings] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
+  const [listHistory, setListHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('listHistory') || '[]'); } catch(e) { return []; }
+  });
 
   const subtotal = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const tps = subtotal * TPS;
@@ -169,6 +172,38 @@ export default function App() {
   const saveCategoryMargins = (updated) => {
     setCategoryMargins(updated);
     localStorage.setItem('categoryMargins', JSON.stringify(updated));
+  };
+
+  const saveToHistory = (items, client, job, num) => {
+    if (!items || items.length === 0) return;
+    const sub = items.reduce((s, i) => s + i.qty * i.product.sell, 0);
+    const entry = {
+      id: Date.now().toString(36),
+      savedAt: new Date().toISOString(),
+      clientName: client || '',
+      jobDesc: job || '',
+      invoiceNum: num || '',
+      items,
+      subtotal: sub,
+      total: sub * (1 + TPS + TVQ),
+    };
+    const updated = [entry, ...listHistory].slice(0, 50); // garder 50 dernières
+    setListHistory(updated);
+    localStorage.setItem('listHistory', JSON.stringify(updated));
+  };
+
+  const deleteFromHistory = (id) => {
+    const updated = listHistory.filter(e => e.id !== id);
+    setListHistory(updated);
+    localStorage.setItem('listHistory', JSON.stringify(updated));
+  };
+
+  const loadFromHistory = (entry) => {
+    setInvoiceItems(entry.items);
+    if (entry.clientName) setClientName(entry.clientName);
+    if (entry.jobDesc) setJobDesc(entry.jobDesc);
+    if (entry.invoiceNum) setInvoiceNum(entry.invoiceNum);
+    setTab('invoice');
   };
 
   const handleParse = async () => {
@@ -214,6 +249,7 @@ export default function App() {
       if (uncertain.length > 0) {
         setPendingReview(uncertain);
       } else if (confident.length > 0) {
+        saveToHistory(confident, clientName, jobDesc, invoiceNum);
         setTab("invoice");
       }
     } catch (e) {
@@ -234,7 +270,16 @@ export default function App() {
     }]);
     const remaining = pendingReview.filter(r => r.id !== reviewId);
     setPendingReview(remaining);
-    if (remaining.length === 0) setTab("invoice");
+    if (remaining.length === 0) {
+      const finalItems = [...invoiceItems, {
+        id: Math.random().toString(36).slice(2),
+        product: allProducts[String(selectedCode)],
+        qty: item.qty,
+        note: item.note,
+      }];
+      saveToHistory(finalItems, clientName, jobDesc, invoiceNum);
+      setTab("invoice");
+    }
   };
 
   const skipReviewItem = (reviewId) => {
@@ -437,6 +482,7 @@ export default function App() {
       { id: 'parse', icon: '📋', label: 'Notes' },
       { id: 'invoice', icon: '📦', label: `Liste (${invoiceItems.length})` },
       { id: 'catalog', icon: '🗂️', label: 'Catalogue' },
+      { id: 'history', icon: '🕐', label: 'Historique' },
       { id: 'margins', icon: '📊', label: 'Marges' },
     ];
     return (
@@ -716,6 +762,55 @@ export default function App() {
             </div>
           )}
 
+          {/* HISTORY TAB - mobile */}
+          {tab === 'history' && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>
+                🕐 Listes sauvegardées ({listHistory.length})
+              </div>
+              {listHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: C.textLight, fontSize: 14 }}>
+                  Aucune liste sauvegardée pour l'instant.<br/>Analysez une liste pour commencer.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {listHistory.map(entry => {
+                    const d = new Date(entry.savedAt);
+                    const dateStr = d.toLocaleDateString('fr-CA', { month: 'short', day: 'numeric' });
+                    const timeStr = d.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <div key={entry.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{entry.clientName || 'Sans client'}</div>
+                            {entry.jobDesc && <div style={{ fontSize: 11, color: C.textMuted, marginTop: 1 }}>{entry.jobDesc}</div>}
+                            <div style={{ fontSize: 11, color: C.textLight, marginTop: 2 }}>{dateStr} à {timeStr} · {entry.items.length} items</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: C.accent }}>{new Intl.NumberFormat('fr-CA', { style: 'currency', currency: 'CAD' }).format(entry.total)}</div>
+                            <div style={{ fontSize: 10, color: C.textLight }}>TPS+TVQ incl.</div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10, lineHeight: 1.6 }}>
+                          {entry.items.slice(0, 3).map(i => `${i.qty}× ${i.product.name}`).join(' · ')}
+                          {entry.items.length > 3 && ` · +${entry.items.length - 3} autres`}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={() => loadFromHistory(entry)} style={{ flex: 1, padding: '10px', background: C.accent, border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, touchAction: 'manipulation' }}>
+                            ↩ Charger
+                          </button>
+                          <button onClick={() => deleteFromHistory(entry.id)} style={{ padding: '10px 14px', background: '#fdecea', border: '1px solid #f5c6c6', borderRadius: 8, color: '#c0392b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* MARGINS TAB - mobile */}
           {tab === 'margins' && (() => {
             const cats = ['ROUGH ABS', 'ROUGH PEX', 'FOND DE TERRE', 'FINITION'];
@@ -770,7 +865,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["catalog", "🗂️ Catalogue"], ["margins", "📊 Marges"]].map(([id, label]) => (
+            {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"]].map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} style={{
                 padding: "8px 18px", background: tab === id ? C.accent : "rgba(255,255,255,0.1)",
                 border: `1px solid ${tab === id ? C.accent : "rgba(255,255,255,0.2)"}`,
@@ -1028,6 +1123,55 @@ export default function App() {
               </button>
               {saveStatus && <div style={{ fontSize: 13, fontWeight: 600, color: saveStatus.startsWith('✅') ? "#16a34a" : "#c0392b" }}>{saveStatus}</div>}
             </div>
+          </div>
+        )}
+
+        {/* HISTORY TAB */}
+        {tab === "history" && (
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 20 }}>
+              🕐 Listes sauvegardées ({listHistory.length})
+            </div>
+            {listHistory.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: C.textLight, fontSize: 14 }}>
+                Aucune liste sauvegardée pour l'instant. Analysez une liste pour commencer.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
+                {listHistory.map(entry => {
+                  const d = new Date(entry.savedAt);
+                  const dateStr = d.toLocaleDateString('fr-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+                  const timeStr = d.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+                  return (
+                    <div key={entry.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{entry.clientName || 'Sans client'}</div>
+                          {entry.jobDesc && <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{entry.jobDesc}</div>}
+                          <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>{dateStr} à {timeStr} · {entry.items.length} articles</div>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                          <div style={{ fontSize: 16, fontWeight: 700, color: C.accent }}>{new Intl.NumberFormat('fr-CA', { style: 'currency', currency: 'CAD' }).format(entry.total)}</div>
+                          <div style={{ fontSize: 10, color: C.textLight }}>taxes incl.</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12, lineHeight: 1.7, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                        {entry.items.slice(0, 4).map(i => `${i.qty}× ${i.product.name}`).join(' · ')}
+                        {entry.items.length > 4 && ` · +${entry.items.length - 4} autres`}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => loadFromHistory(entry)} style={{ flex: 1, padding: "8px 14px", background: C.accent, border: "none", borderRadius: 6, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700 }}>
+                          ↩ Charger cette liste
+                        </button>
+                        <button onClick={() => deleteFromHistory(entry.id)} style={{ padding: "8px 12px", background: "#fdecea", border: "1px solid #f5c6c6", borderRadius: 6, color: "#c0392b", cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
