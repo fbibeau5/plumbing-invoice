@@ -130,7 +130,8 @@ const THEMES = {
 
 export default function App() {
   const [tab, setTab] = useState("parse");
-  const [notesText, setNotesText] = useState(SAMPLE_NOTES);
+  const [notesText, setNotesText] = useState(() => localStorage.getItem('notesText') ?? SAMPLE_NOTES);
+  useEffect(() => { localStorage.setItem('notesText', notesText); }, [notesText]);
   const [invoiceItems, setInvoiceItems] = useState([]);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState(null);
@@ -430,7 +431,13 @@ export default function App() {
   const C = THEMES[themeName] || THEMES.blue;
 
   const PASSWORD = "Nelson23$$";
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem('plomb_auth') === '1');
+  const AUTH_DURATION = 24 * 60 * 60 * 1000; // 24 heures en ms
+  const [authed, setAuthed] = useState(() => {
+    try {
+      const data = JSON.parse(localStorage.getItem('plomb_auth') || 'null');
+      return data && (Date.now() - data.ts) < AUTH_DURATION;
+    } catch(e) { return false; }
+  });
   const [pwInput, setPwInput] = useState('');
   const [pwError, setPwError] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -443,7 +450,7 @@ export default function App() {
 
   const handleLogin = () => {
     if (pwInput === PASSWORD) {
-      sessionStorage.setItem('plomb_auth', '1');
+      localStorage.setItem('plomb_auth', JSON.stringify({ ts: Date.now() }));
       setAuthed(true);
       setPwError(false);
     } else {
@@ -497,7 +504,7 @@ export default function App() {
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setShowThemes(p => !p)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 16 }}>🎨</button>
             <button onClick={() => setMobileView('desktop')} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>🖥️</button>
-            <button onClick={() => { sessionStorage.removeItem('plomb_auth'); setAuthed(false); }} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 12 }}>🔒</button>
+            <button onClick={() => { localStorage.removeItem('plomb_auth'); setAuthed(false); }} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 12 }}>🔒</button>
           </div>
           {showThemes && (
             <div style={{ position: 'absolute', right: 12, top: 56, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, zIndex: 100, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
@@ -876,7 +883,7 @@ export default function App() {
             {isMobile && (
               <button onClick={() => setMobileView('mobile')} style={{ padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, color: "white", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>📱</button>
             )}
-            <button onClick={() => { sessionStorage.removeItem('plomb_auth'); setAuthed(false); }} style={{ padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, color: "white", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>🔒</button>
+            <button onClick={() => { localStorage.removeItem('plomb_auth'); setAuthed(false); }} style={{ padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, color: "white", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>🔒</button>
             <div style={{ position: "relative", marginLeft: 8 }}>
               <button onClick={() => setShowThemes(p => !p)} style={{
                 padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
