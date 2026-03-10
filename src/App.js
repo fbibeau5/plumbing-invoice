@@ -414,18 +414,72 @@ export default function App() {
   };
 
   const printInvoice = () => {
-    const printContent = document.getElementById("invoice-print");
-    const w = window.open("", "_blank");
-    w.document.write(`<html><head><title>Facture ${invoiceNum}</title><style>
-      body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a}
-      table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left}
-      th{background:#f9fafb;font-weight:600}tr:last-child td{border:none}
-      .total-row{font-weight:700;font-size:1.1em}.header{margin-bottom:24px}
-      h1{font-size:1.5em;margin:0 0 4px}p{margin:2px 0;color:#555}
-      .grand-total{background:#1a1a1a;color:white;padding:12px;border-radius:6px;text-align:right;font-size:1.2em;font-weight:700;margin-top:12px}
-    </style></head><body>${printContent.innerHTML}</body></html>`);
-    w.document.close();
-    w.print();
+    const sub = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
+    const tpsAmt = sub * TPS;
+    const tvqAmt = sub * TVQ;
+    const tot = sub + tpsAmt + tvqAmt;
+
+    const rows = invoiceItems.map(item => `
+      <tr>
+        <td>${item.product.name}</td>
+        <td>${item.product.dim}</td>
+        <td style="text-align:center">${item.qty}</td>
+        <td style="text-align:right">${fmt(item.product.sell)}</td>
+        <td style="text-align:right">${fmt(item.qty * item.product.sell)}</td>
+      </tr>`).join('');
+
+    const html = `<!DOCTYPE html><html><head>
+      <meta charset="utf-8"/>
+      <title>Facture ${invoiceNum}</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:24px;color:#1a1a1a;font-size:14px}
+        h1{font-size:1.4em;margin:0 0 4px}p{margin:2px 0;color:#555}
+        .header{margin-bottom:20px;border-bottom:2px solid #1a1a1a;padding-bottom:12px}
+        table{width:100%;border-collapse:collapse;margin-top:16px}
+        th{background:#f3f4f6;padding:8px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+        td{padding:8px;border-bottom:1px solid #e5e7eb}
+        tr:last-child td{border:none}
+        .totals{margin-top:12px;text-align:right}
+        .totals div{padding:3px 0;font-size:13px;color:#555}
+        .grand-total{background:#1a1a1a;color:white;padding:10px 14px;border-radius:6px;font-size:1.1em;font-weight:700;margin-top:8px;display:inline-block}
+      </style>
+    </head><body>
+      <div class="header">
+        <h1>🔧 PlombInvoice</h1>
+        <p><strong>Facture #${invoiceNum}</strong></p>
+        ${clientName ? `<p>Client: ${clientName}</p>` : ''}
+        ${jobDesc ? `<p>Travaux: ${jobDesc}</p>` : ''}
+        <p style="color:#999;font-size:12px">${new Date().toLocaleDateString('fr-CA')}</p>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Article</th><th>Dim.</th>
+          <th style="text-align:center">Qté</th>
+          <th style="text-align:right">Prix unit.</th>
+          <th style="text-align:right">Total</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="totals">
+        <div>Sous-total: <strong>${fmt(sub)}</strong></div>
+        <div>TPS (5%): <strong>${fmt(tpsAmt)}</strong></div>
+        <div>TVQ (9.975%): <strong>${fmt(tvqAmt)}</strong></div>
+        <div class="grand-total">TOTAL: ${fmt(tot)}</div>
+      </div>
+    </body></html>`;
+
+    // Iframe invisible — seule méthode fiable sur iOS Safari
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;visibility:hidden;';
+    document.body.appendChild(iframe);
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+    iframe.contentWindow.focus();
+    setTimeout(() => {
+      iframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(iframe), 2000);
+    }, 300);
   };
 
   const C = THEMES[themeName] || THEMES.blue;
