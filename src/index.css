@@ -5,6 +5,19 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Empêche le double-tap zoom sur iOS */
+  touch-action: manipulation;
+}
+
+/* Supprime le délai de 300ms et le highlight bleu sur tous les boutons/inputs mobiles */
+button, input, textarea, select {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Empêche le scroll horizontal involontaire */
+html, body {
+  overflow-x: hidden;
 }
 
 code {
