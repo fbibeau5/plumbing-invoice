@@ -132,7 +132,6 @@ export default function App() {
   const [tab, setTab] = useState("parse");
   const [notesText, setNotesText] = useState(() => localStorage.getItem('notesText') ?? SAMPLE_NOTES);
   useEffect(() => { localStorage.setItem('notesText', notesText); }, [notesText]);
-  useEffect(() => { localStorage.setItem('themeName', themeName); }, [themeName]);
   const [invoiceItems, setInvoiceItems] = useState([]);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState(null);
@@ -142,6 +141,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCat, setSelectedCat] = useState("ALL");
   const [themeName, setThemeName] = useState(() => localStorage.getItem('themeName') || "blue");
+  useEffect(() => { localStorage.setItem('themeName', themeName); }, [themeName]);
   const [showThemes, setShowThemes] = useState(false);
   const [customProducts, setCustomProducts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('customProducts') || '{}'); } catch(e) { return {}; }
