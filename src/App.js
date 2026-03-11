@@ -553,18 +553,19 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Sync catalogue personnalisé depuis le serveur au démarrage
-  useEffect(() => {
+  // Sync catalogue personnalisé — le serveur est la source de vérité (multi-utilisateurs)
+  const syncCatalog = useCallback(() => {
     setCatalogSync('sync');
     fetch('/api/catalog-data')
       .then(r => r.ok ? r.json() : null)
       .then(serverCatalog => {
         if (!serverCatalog || typeof serverCatalog !== 'object') { setCatalogSync('offline'); return; }
         setCustomProducts(prev => {
-          // Fusion: union de local + serveur. Local garde la priorité (modifications non syncées)
-          const merged = { ...serverCatalog, ...prev };
+          // Serveur gagne pour les produits existants (changements des autres utilisateurs)
+          // Les produits locaux seulement (pas encore sur serveur) sont poussés vers le serveur
+          const merged = { ...prev, ...serverCatalog };
           localStorage.setItem('customProducts', JSON.stringify(merged));
-          // Push les produits locaux qui ne sont pas encore sur le serveur
+          // Push les produits locaux absents du serveur
           const localOnly = Object.values(prev).filter(p => !serverCatalog[String(p.code)]);
           localOnly.forEach(product => {
             fetch('/api/catalog-data', {
@@ -578,9 +579,17 @@ export default function App() {
         setCatalogSync('ok');
         setTimeout(() => setCatalogSync(null), 2000);
       })
-      .catch(() => { setCatalogSync('offline'); setTimeout(() => setCatalogSync(null), 3000); });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      .catch(() => { setCatalogSync('offline'); setTimeout(() => setCatalogSync(null), 4000); });
   }, []);
+
+  // Sync catalogue au démarrage
+  useEffect(() => { syncCatalog(); }, [syncCatalog]);
+
+  // Sync catalogue automatique toutes les 60 secondes
+  useEffect(() => {
+    const interval = setInterval(() => { syncCatalog(); }, 60000);
+    return () => clearInterval(interval);
+  }, [syncCatalog]);
 
   // Sync historique depuis le serveur au démarrage (fusion local + serveur)
   const syncHistory = useCallback(() => {
@@ -822,13 +831,12 @@ export default function App() {
               </div>
 
               {/* Sync status catalogue - mobile */}
-              {catalogSync && (
-                <div style={{ fontSize: 11, marginBottom: 8, color: catalogSync === 'ok' ? '#16a34a' : catalogSync === 'offline' ? '#c0392b' : C.textMuted }}>
-                  {catalogSync === 'sync' && '⟳ Sync catalogue…'}
-                  {catalogSync === 'ok' && '✓ Catalogue synchronisé'}
-                  {catalogSync === 'offline' && '📵 Catalogue hors-ligne'}
-                </div>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                {catalogSync === 'sync' && <div style={{ fontSize: 11, color: C.textMuted }}>⟳ Sync catalogue…</div>}
+                {catalogSync === 'ok' && <div style={{ fontSize: 11, color: '#16a34a' }}>✓ Catalogue synchronisé</div>}
+                {catalogSync === 'offline' && <div style={{ fontSize: 11, color: '#c0392b' }}>📵 Hors-ligne</div>}
+                <button onClick={() => syncCatalog()} disabled={catalogSync === 'sync'} style={{ padding: '5px 10px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, touchAction: 'manipulation', opacity: catalogSync === 'sync' ? 0.5 : 1 }}>🔄</button>
+              </div>
 
               {/* Bouton + Nouveau produit - mobile */}
               <button onClick={() => { setShowAddForm(p => !p); setAddError(''); }} style={{ width: '100%', padding: '12px', background: showAddForm ? C.accent : C.card, border: `1px solid ${showAddForm ? C.accent : C.border}`, borderRadius: 10, color: showAddForm ? 'white' : C.accent, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, marginBottom: 12, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
@@ -1065,7 +1073,7 @@ export default function App() {
         {/* Bottom Nav */}
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.header, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {mTabs.map(({ id, icon, label }) => (
-            <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); }} style={{ flex: 1, padding: '10px 4px 12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
+            <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); if (id === 'catalog') syncCatalog(); }} style={{ flex: 1, padding: '10px 4px 12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
               <span style={{ fontSize: 22 }}>{icon}</span>
               <span style={{ fontSize: 10, color: tab === id ? C.accent : 'rgba(255,255,255,0.5)', fontWeight: tab === id ? 700 : 400 }}>{label}</span>
             </button>
@@ -1091,7 +1099,7 @@ export default function App() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"]].map(([id, label]) => (
-              <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); }} style={{
+              <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); if (id === 'catalog') syncCatalog(); }} style={{
                 padding: "8px 18px", background: tab === id ? C.accent : "rgba(255,255,255,0.1)",
                 border: `1px solid ${tab === id ? C.accent : "rgba(255,255,255,0.2)"}`,
                 borderRadius: 6, color: "white",
@@ -1540,9 +1548,12 @@ export default function App() {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div style={{ fontSize: 12, color: C.textLight }}>{filtered.length} produits{Object.keys(customProducts).length > 0 && ` (dont ${Object.keys(customProducts).length} personnalisés)`}</div>
-              {catalogSync === 'sync' && <div style={{ fontSize: 12, color: C.textMuted }}>⟳ Sync catalogue…</div>}
-              {catalogSync === 'ok' && <div style={{ fontSize: 12, color: '#16a34a' }}>✓ Catalogue synchronisé</div>}
-              {catalogSync === 'offline' && <div style={{ fontSize: 12, color: '#c0392b' }}>📵 Hors-ligne</div>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {catalogSync === 'sync' && <div style={{ fontSize: 12, color: C.textMuted }}>⟳ Sync catalogue…</div>}
+                {catalogSync === 'ok' && <div style={{ fontSize: 12, color: '#16a34a' }}>✓ Catalogue synchronisé</div>}
+                {catalogSync === 'offline' && <div style={{ fontSize: 12, color: '#c0392b' }}>📵 Hors-ligne</div>}
+                <button onClick={() => syncCatalog()} disabled={catalogSync === 'sync'} style={{ padding: '6px 12px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, opacity: catalogSync === 'sync' ? 0.5 : 1 }}>🔄 Rafraîchir</button>
+              </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
               {filtered.map(p => {
