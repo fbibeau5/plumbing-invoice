@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
   <defs>
     <style>
-      .pipe { stroke: #4a90d9; stroke-linecap: round; fill: none; opacity: 0.13; }
-      .pipe-thin { stroke: #4a90d9; stroke-linecap: round; fill: none; opacity: 0.08; }
-      .joint { fill: #4a90d9; opacity: 0.18; }
-      .valve { stroke: #4a90d9; fill: none; opacity: 0.15; }
-      .bolt { fill: #4a90d9; opacity: 0.2; }
+      .pipe { stroke: #4a90d9; stroke-linecap: round; fill: none; opacity: 0.38; }
+      .pipe-thin { stroke: #4a90d9; stroke-linecap: round; fill: none; opacity: 0.24; }
+      .joint { fill: #4a90d9; opacity: 0.45; }
+      .valve { stroke: #4a90d9; fill: none; opacity: 0.38; }
+      .bolt { fill: #4a90d9; opacity: 0.50; }
     </style>
   </defs>
 

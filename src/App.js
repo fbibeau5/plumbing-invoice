@@ -553,73 +553,80 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Sync catalogue personnalisé — le serveur est la source de vérité (multi-utilisateurs)
+  // Refs pour les timers de retry (évite les fuites mémoire)
+  const catalogRetryRef = useRef(null);
+  const historyRetryRef = useRef(null);
+
+  // Sync catalogue — serveur = source de vérité (multi-utilisateurs)
   const syncCatalog = useCallback(() => {
+    if (catalogRetryRef.current) { clearTimeout(catalogRetryRef.current); catalogRetryRef.current = null; }
     setCatalogSync('sync');
     fetch('/api/catalog-data')
       .then(r => r.ok ? r.json() : null)
       .then(serverCatalog => {
-        if (!serverCatalog || typeof serverCatalog !== 'object') { setCatalogSync('offline'); return; }
+        if (!serverCatalog || typeof serverCatalog !== 'object') {
+          setCatalogSync('offline');
+          catalogRetryRef.current = setTimeout(() => syncCatalog(), 30000);
+          return;
+        }
         setCustomProducts(prev => {
-          // Serveur gagne pour les produits existants (changements des autres utilisateurs)
-          // Les produits locaux seulement (pas encore sur serveur) sont poussés vers le serveur
           const merged = { ...prev, ...serverCatalog };
           localStorage.setItem('customProducts', JSON.stringify(merged));
-          // Push les produits locaux absents du serveur
           const localOnly = Object.values(prev).filter(p => !serverCatalog[String(p.code)]);
           localOnly.forEach(product => {
-            fetch('/api/catalog-data', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'save', product }),
-            }).catch(() => {});
+            fetch('/api/catalog-data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', product }) }).catch(() => {});
           });
           return merged;
         });
         setCatalogSync('ok');
-        setTimeout(() => setCatalogSync(null), 2000);
+        setTimeout(() => setCatalogSync(null), 2500);
       })
-      .catch(() => { setCatalogSync('offline'); setTimeout(() => setCatalogSync(null), 4000); });
+      .catch(() => {
+        setCatalogSync('offline');
+        catalogRetryRef.current = setTimeout(() => syncCatalog(), 30000);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync catalogue au démarrage
   useEffect(() => { syncCatalog(); }, [syncCatalog]);
-
-  // Sync catalogue automatique toutes les 60 secondes
   useEffect(() => {
-    const interval = setInterval(() => { syncCatalog(); }, 60000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => syncCatalog(), 60000);
+    return () => { clearInterval(interval); if (catalogRetryRef.current) clearTimeout(catalogRetryRef.current); };
   }, [syncCatalog]);
 
-  // Sync historique depuis le serveur au démarrage (fusion local + serveur)
+  // Sync historique — fusion serveur + local
   const syncHistory = useCallback(() => {
+    if (historyRetryRef.current) { clearTimeout(historyRetryRef.current); historyRetryRef.current = null; }
     setHistorySync('sync');
     fetch('/api/history-data')
       .then(r => r.ok ? r.json() : null)
       .then(serverHistory => {
-        if (!Array.isArray(serverHistory)) { setHistorySync('offline'); return; }
+        if (!Array.isArray(serverHistory)) {
+          setHistorySync('offline');
+          historyRetryRef.current = setTimeout(() => syncHistory(), 30000);
+          return;
+        }
         setListHistory(prev => {
           const map = new Map();
           [...prev, ...serverHistory].forEach(e => { if (e && e.id) map.set(e.id, e); });
-          const merged = [...map.values()]
-            .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt))
-            .slice(0, 50);
+          const merged = [...map.values()].sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt)).slice(0, 50);
           localStorage.setItem('listHistory', JSON.stringify(merged));
           return merged;
         });
         setHistorySync('ok');
-        setTimeout(() => setHistorySync(null), 2000);
+        setTimeout(() => setHistorySync(null), 2500);
       })
-      .catch(() => { setHistorySync('offline'); setTimeout(() => setHistorySync(null), 4000); });
+      .catch(() => {
+        setHistorySync('offline');
+        historyRetryRef.current = setTimeout(() => syncHistory(), 30000);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync au démarrage
   useEffect(() => { syncHistory(); }, [syncHistory]);
-
-  // Sync automatique toutes les 60 secondes
   useEffect(() => {
-    const interval = setInterval(() => { syncHistory(); }, 60000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => syncHistory(), 60000);
+    return () => { clearInterval(interval); if (historyRetryRef.current) clearTimeout(historyRetryRef.current); };
   }, [syncHistory]);
 
   const handleLogin = () => {
@@ -635,8 +642,9 @@ export default function App() {
 
   // ── LOGIN SCREEN ──────────────────────────────────────────────────────────
   if (!authed) return (
-    <div style={{ minHeight: '100vh', background: '#0f1628', backgroundImage: 'url(/bg-pipes.svg)', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui,-apple-system,sans-serif' }}>
-      <div style={{ background: '#1e2a4a', border: '1px solid #2d3d6a', borderRadius: 16, padding: '40px 32px', width: '100%', maxWidth: 360, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+    <div style={{ minHeight: '100vh', background: '#0f1628', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui,-apple-system,sans-serif', position: 'relative' }}>
+      <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.22, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
+      <div style={{ position: 'relative', zIndex: 1, background: '#1e2a4a', border: '1px solid #2d3d6a', borderRadius: 16, padding: '40px 32px', width: '100%', maxWidth: 360, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ width: 60, height: 60, background: '#1a6bb5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, margin: '0 auto 20px' }}>🔧</div>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 4 }}>Révolution<span style={{ color: '#4a90d9' }}> Facturation</span></div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 2, marginBottom: 32 }}>ACCÈS SÉCURISÉ</div>
@@ -667,7 +675,8 @@ export default function App() {
       { id: 'margins', icon: '📊', label: 'Marges' },
     ];
     return (
-      <div style={{ minHeight: '100vh', background: C.bg, backgroundImage: 'url(/bg-pipes.svg)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', fontFamily: 'system-ui,-apple-system,sans-serif', color: C.text, paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
+      <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui,-apple-system,sans-serif', color: C.text, paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
+        <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.14, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
         <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 90, right: 12, width: 130, height: 130, borderRadius: '50%', objectFit: 'cover', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }} />
         {/* Mobile Header */}
         <div style={{ background: C.header, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
@@ -1085,7 +1094,8 @@ export default function App() {
 
   // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, backgroundImage: 'url(/bg-pipes.svg)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', fontFamily: "system-ui, -apple-system, sans-serif", color: C.text }}>
+    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "system-ui, -apple-system, sans-serif", color: C.text }}>
+      <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.14, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
       <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 24, right: 24, width: 160, height: 160, borderRadius: '50%', objectFit: 'cover', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }} />
       {/* Header */}
       <div style={{ background: C.header, padding: "0 24px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
