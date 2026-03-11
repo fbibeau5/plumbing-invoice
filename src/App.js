@@ -162,6 +162,8 @@ export default function App() {
   });
   const [historySync, setHistorySync] = useState(null); // null | 'sync' | 'ok' | 'offline'
   const [catalogSync, setCatalogSync] = useState(null);
+  const [editingHistoryId, setEditingHistoryId] = useState(null);
+  const [editHistoryForm, setEditHistoryForm] = useState({ clientName: '', jobDesc: '', invoiceNum: '' });
 
   const subtotal = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const tps = subtotal * TPS;
@@ -212,6 +214,18 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete', id }),
     }).catch(() => {});
+  };
+
+  const updateHistoryEntry = (id, fields) => {
+    const updated = listHistory.map(e => e.id === id ? { ...e, ...fields } : e);
+    setListHistory(updated);
+    localStorage.setItem('listHistory', JSON.stringify(updated));
+    fetch('/api/history-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update', id, fields }),
+    }).catch(() => {});
+    setEditingHistoryId(null);
   };
 
   const loadFromHistory = (entry) => {
@@ -948,31 +962,62 @@ export default function App() {
                     const d = new Date(entry.savedAt);
                     const dateStr = d.toLocaleDateString('fr-CA', { month: 'short', day: 'numeric' });
                     const timeStr = d.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+                    const isEditing = editingHistoryId === entry.id;
                     return (
-                      <div key={entry.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                      <div key={entry.id} style={{ background: C.card, border: `1px solid ${isEditing ? C.accent : C.border}`, borderRadius: 12, padding: 14 }}>
+                        {isEditing ? (
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{entry.clientName || 'Sans client'}</div>
-                            {entry.jobDesc && <div style={{ fontSize: 11, color: C.textMuted, marginTop: 1 }}>{entry.jobDesc}</div>}
-                            <div style={{ fontSize: 11, color: C.textLight, marginTop: 2 }}>{dateStr} à {timeStr} · {entry.items.length} items</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 10 }}>✏️ Modifier les infos client</div>
+                            {[['Client', 'clientName'], ['Description', 'jobDesc'], ['Facture #', 'invoiceNum']].map(([label, key]) => (
+                              <div key={key} style={{ marginBottom: 8 }}>
+                                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 3 }}>{label}</div>
+                                <input
+                                  value={editHistoryForm[key]}
+                                  onChange={e => setEditHistoryForm(f => ({ ...f, [key]: e.target.value }))}
+                                  style={{ width: '100%', boxSizing: 'border-box', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '8px 10px', color: C.text, fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
+                                />
+                              </div>
+                            ))}
+                            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                              <button onClick={() => updateHistoryEntry(entry.id, editHistoryForm)} style={{ flex: 1, padding: '9px', background: C.accent, border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, touchAction: 'manipulation' }}>
+                                ✓ Sauvegarder
+                              </button>
+                              <button onClick={() => setEditingHistoryId(null)} style={{ padding: '9px 14px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>
+                                Annuler
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: C.accent }}>{new Intl.NumberFormat('fr-CA', { style: 'currency', currency: 'CAD' }).format(entry.total)}</div>
-                            <div style={{ fontSize: 10, color: C.textLight }}>TPS+TVQ incl.</div>
-                          </div>
-                        </div>
-                        <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10, lineHeight: 1.6 }}>
-                          {entry.items.slice(0, 3).map(i => `${i.qty}× ${i.product.name}`).join(' · ')}
-                          {entry.items.length > 3 && ` · +${entry.items.length - 3} autres`}
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button onClick={() => loadFromHistory(entry)} style={{ flex: 1, padding: '10px', background: C.accent, border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, touchAction: 'manipulation' }}>
-                            ↩ Charger
-                          </button>
-                          <button onClick={() => deleteFromHistory(entry.id)} style={{ padding: '10px 14px', background: '#fdecea', border: '1px solid #f5c6c6', borderRadius: 8, color: '#c0392b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>
-                            ✕
-                          </button>
-                        </div>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                              <div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{entry.clientName || 'Sans client'}</div>
+                                {entry.jobDesc && <div style={{ fontSize: 11, color: C.textMuted, marginTop: 1 }}>{entry.jobDesc}</div>}
+                                {entry.invoiceNum && <div style={{ fontSize: 11, color: C.textLight, marginTop: 1 }}>Facture #{entry.invoiceNum}</div>}
+                                <div style={{ fontSize: 11, color: C.textLight, marginTop: 2 }}>{dateStr} à {timeStr} · {entry.items.length} items</div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: 15, fontWeight: 700, color: C.accent }}>{new Intl.NumberFormat('fr-CA', { style: 'currency', currency: 'CAD' }).format(entry.total)}</div>
+                                <div style={{ fontSize: 10, color: C.textLight }}>TPS+TVQ incl.</div>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 10, lineHeight: 1.6 }}>
+                              {entry.items.slice(0, 3).map(i => `${i.qty}× ${i.product.name}`).join(' · ')}
+                              {entry.items.length > 3 && ` · +${entry.items.length - 3} autres`}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button onClick={() => loadFromHistory(entry)} style={{ flex: 1, padding: '10px', background: C.accent, border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, touchAction: 'manipulation' }}>
+                                ↩ Charger
+                              </button>
+                              <button onClick={() => { setEditingHistoryId(entry.id); setEditHistoryForm({ clientName: entry.clientName || '', jobDesc: entry.jobDesc || '', invoiceNum: entry.invoiceNum || '' }); }} style={{ padding: '10px 12px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>
+                                ✏️
+                              </button>
+                              <button onClick={() => deleteFromHistory(entry.id)} style={{ padding: '10px 12px', background: '#fdecea', border: '1px solid #f5c6c6', borderRadius: 8, color: '#c0392b', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>
+                                ✕
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -1322,31 +1367,64 @@ export default function App() {
                   const d = new Date(entry.savedAt);
                   const dateStr = d.toLocaleDateString('fr-CA', { weekday: 'short', month: 'short', day: 'numeric' });
                   const timeStr = d.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+                  const isEditing = editingHistoryId === entry.id;
                   return (
-                    <div key={entry.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 18, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                    <div key={entry.id} style={{ background: C.card, border: `1px solid ${isEditing ? C.accent : C.border}`, borderRadius: 10, padding: 18, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+                      {isEditing ? (
                         <div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{entry.clientName || 'Sans client'}</div>
-                          {entry.jobDesc && <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{entry.jobDesc}</div>}
-                          <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>{dateStr} à {timeStr} · {entry.items.length} articles</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginBottom: 12 }}>✏️ Modifier les infos client</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px', gap: 10, marginBottom: 12 }}>
+                            {[['Client / Société', 'clientName'], ['Description du travail', 'jobDesc'], ['Facture #', 'invoiceNum']].map(([label, key]) => (
+                              <div key={key}>
+                                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>{label}</div>
+                                <input
+                                  value={editHistoryForm[key]}
+                                  onChange={e => setEditHistoryForm(f => ({ ...f, [key]: e.target.value }))}
+                                  style={{ width: '100%', boxSizing: 'border-box', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, padding: '8px 10px', color: C.text, fontFamily: 'inherit', fontSize: 13, outline: 'none' }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={() => updateHistoryEntry(entry.id, editHistoryForm)} style={{ padding: "8px 18px", background: C.accent, border: "none", borderRadius: 6, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700 }}>
+                              ✓ Sauvegarder
+                            </button>
+                            <button onClick={() => setEditingHistoryId(null)} style={{ padding: "8px 14px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
+                              Annuler
+                            </button>
+                          </div>
                         </div>
-                        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-                          <div style={{ fontSize: 16, fontWeight: 700, color: C.accent }}>{new Intl.NumberFormat('fr-CA', { style: 'currency', currency: 'CAD' }).format(entry.total)}</div>
-                          <div style={{ fontSize: 10, color: C.textLight }}>taxes incl.</div>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12, lineHeight: 1.7, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
-                        {entry.items.slice(0, 4).map(i => `${i.qty}× ${i.product.name}`).join(' · ')}
-                        {entry.items.length > 4 && ` · +${entry.items.length - 4} autres`}
-                      </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => loadFromHistory(entry)} style={{ flex: 1, padding: "8px 14px", background: C.accent, border: "none", borderRadius: 6, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700 }}>
-                          ↩ Charger cette liste
-                        </button>
-                        <button onClick={() => deleteFromHistory(entry.id)} style={{ padding: "8px 12px", background: "#fdecea", border: "1px solid #f5c6c6", borderRadius: 6, color: "#c0392b", cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>
-                          ✕
-                        </button>
-                      </div>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                            <div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{entry.clientName || 'Sans client'}</div>
+                              {entry.jobDesc && <div style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{entry.jobDesc}</div>}
+                              {entry.invoiceNum && <div style={{ fontSize: 11, color: C.textLight, marginTop: 2 }}>Facture #{entry.invoiceNum}</div>}
+                              <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>{dateStr} à {timeStr} · {entry.items.length} articles</div>
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                              <div style={{ fontSize: 16, fontWeight: 700, color: C.accent }}>{new Intl.NumberFormat('fr-CA', { style: 'currency', currency: 'CAD' }).format(entry.total)}</div>
+                              <div style={{ fontSize: 10, color: C.textLight }}>taxes incl.</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12, lineHeight: 1.7, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                            {entry.items.slice(0, 4).map(i => `${i.qty}× ${i.product.name}`).join(' · ')}
+                            {entry.items.length > 4 && ` · +${entry.items.length - 4} autres`}
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={() => loadFromHistory(entry)} style={{ flex: 1, padding: "8px 14px", background: C.accent, border: "none", borderRadius: 6, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700 }}>
+                              ↩ Charger cette liste
+                            </button>
+                            <button onClick={() => { setEditingHistoryId(entry.id); setEditHistoryForm({ clientName: entry.clientName || '', jobDesc: entry.jobDesc || '', invoiceNum: entry.invoiceNum || '' }); }} style={{ padding: "8px 12px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
+                              ✏️ Modifier
+                            </button>
+                            <button onClick={() => deleteFromHistory(entry.id)} style={{ padding: "8px 12px", background: "#fdecea", border: "1px solid #f5c6c6", borderRadius: 6, color: "#c0392b", cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>
+                              ✕
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}

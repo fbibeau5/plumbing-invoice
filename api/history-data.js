@@ -43,6 +43,19 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, count: updated.length });
       }
 
+      if (action === 'update') {
+        if (!id) return res.status(400).json({ error: 'ID manquant' });
+        const { fields } = body || {};
+        if (!fields || typeof fields !== 'object') {
+          return res.status(400).json({ error: 'Champs manquants' });
+        }
+        const updated = existing.map(e =>
+          e.id === id ? { ...e, ...fields } : e
+        );
+        await redis.set(HISTORY_KEY, updated, { ex: TTL });
+        return res.status(200).json({ ok: true });
+      }
+
       return res.status(400).json({ error: 'Action invalide' });
     }
 
