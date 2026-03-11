@@ -1,0 +1,186 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <defs>
+    <style>
+      .pipe { stroke: #4a90d9; stroke-linecap: round; fill: none; opacity: 0.13; }
+      .pipe-thin { stroke: #4a90d9; stroke-linecap: round; fill: none; opacity: 0.08; }
+      .joint { fill: #4a90d9; opacity: 0.18; }
+      .valve { stroke: #4a90d9; fill: none; opacity: 0.15; }
+      .bolt { fill: #4a90d9; opacity: 0.2; }
+    </style>
+  </defs>
+
+  <!-- === RÉSEAU PRINCIPAL GAUCHE === -->
+  <!-- Gros tuyau horizontal haut-gauche -->
+  <line class="pipe" x1="-10" y1="130" x2="320" y2="130" stroke-width="14"/>
+  <!-- Coude vers le bas -->
+  <path class="pipe" d="M 320 130 Q 345 130 345 155" stroke-width="14"/>
+  <line class="pipe" x1="345" y1="155" x2="345" y2="400" stroke-width="14"/>
+  <!-- T-junction sur tuyau horizontal haut -->
+  <line class="pipe" x1="345" y1="400" x2="620" y2="400" stroke-width="14"/>
+  <line class="pipe" x1="345" y1="400" x2="345" y2="650" stroke-width="14"/>
+  <!-- Coude bas-gauche -->
+  <path class="pipe" d="M 345 650 Q 345 680 315 680" stroke-width="14"/>
+  <line class="pipe" x1="-10" y1="680" x2="315" y2="680" stroke-width="14"/>
+
+  <!-- Tuyau vertical gauche -->
+  <line class="pipe" x1="120" y1="-10" x2="120" y2="130" stroke-width="12"/>
+  <!-- T vers la droite à y=130 -->
+  <path class="pipe" d="M 120 130 Q 120 155 145 155" stroke-width="10"/>
+  <line class="pipe" x1="145" y1="155" x2="270" y2="155" stroke-width="10"/>
+  <!-- Jonction flanges à droite -->
+  <path class="pipe" d="M 270 155 Q 295 155 295 180" stroke-width="10"/>
+  <line class="pipe" x1="295" y1="180" x2="295" y2="320" stroke-width="10"/>
+  <path class="pipe" d="M 295 320 Q 295 345 320 345" stroke-width="10"/>
+  <line class="pipe" x1="320" y1="345" x2="345" y2="345" stroke-width="10"/>
+
+  <!-- === RÉSEAU CENTRAL === -->
+  <!-- Gros tuyau diagonal -->
+  <line class="pipe" x1="500" y1="-10" x2="500" y2="250" stroke-width="16"/>
+  <path class="pipe" d="M 500 250 Q 500 280 530 280" stroke-width="16"/>
+  <line class="pipe" x1="530" y1="280" x2="800" y2="280" stroke-width="16"/>
+  <path class="pipe" d="M 800 280 Q 830 280 830 310" stroke-width="16"/>
+  <line class="pipe" x1="830" y1="310" x2="830" y2="580" stroke-width="16"/>
+  <path class="pipe" d="M 830 580 Q 830 610 860 610" stroke-width="16"/>
+  <line class="pipe" x1="860" y1="610" x2="1200" y2="610" stroke-width="16"/>
+  <path class="pipe" d="M 1200 610 Q 1230 610 1230 640" stroke-width="16"/>
+  <line class="pipe" x1="1230" y1="640" x2="1230" y2="910" stroke-width="16"/>
+
+  <!-- T-junction sur tuyau central -->
+  <line class="pipe" x1="500" y1="280" x2="500" y2="580" stroke-width="12"/>
+  <path class="pipe" d="M 500 580 Q 500 610 470 610" stroke-width="12"/>
+  <line class="pipe" x1="470" y1="610" x2="200" y2="610" stroke-width="12"/>
+  <path class="pipe" d="M 200 610 Q 170 610 170 640" stroke-width="12"/>
+  <line class="pipe" x1="170" y1="640" x2="170" y2="910" stroke-width="12"/>
+
+  <!-- Tuyau horizontal milieu -->
+  <line class="pipe" x1="620" y1="400" x2="830" y2="400" stroke-width="12"/>
+  <path class="pipe" d="M 620 400 Q 620 430 650 430" stroke-width="10"/>
+  <line class="pipe-thin" x1="650" y1="430" x2="780" y2="430" stroke-width="8"/>
+  <path class="pipe-thin" d="M 780 430 Q 800 430 800 450" stroke-width="8"/>
+  <line class="pipe-thin" x1="800" y1="450" x2="800" y2="550" stroke-width="8"/>
+
+  <!-- === RÉSEAU DROITE === -->
+  <!-- Tuyau vertical droit -->
+  <line class="pipe" x1="1050" y1="-10" x2="1050" y2="200" stroke-width="14"/>
+  <path class="pipe" d="M 1050 200 Q 1050 230 1020 230" stroke-width="14"/>
+  <line class="pipe" x1="-10" y1="230" x2="1020" y2="230" stroke-width="14"/>
+
+  <!-- Branche vers le bas du réseau droit -->
+  <path class="pipe" d="M 1050 200 Q 1050 200 1080 200" stroke-width="12"/>
+  <line class="pipe" x1="1080" y1="200" x2="1300" y2="200" stroke-width="12"/>
+  <path class="pipe" d="M 1300 200 Q 1330 200 1330 230" stroke-width="12"/>
+  <line class="pipe" x1="1330" y1="230" x2="1330" y2="450" stroke-width="12"/>
+  <path class="pipe" d="M 1330 450 Q 1330 480 1360 480" stroke-width="12"/>
+  <line class="pipe" x1="1360" y1="480" x2="1450" y2="480" stroke-width="12"/>
+
+  <!-- T vers le bas -->
+  <line class="pipe" x1="1330" y1="450" x2="1330" y2="750" stroke-width="10"/>
+  <path class="pipe" d="M 1330 750 Q 1330 780 1300 780" stroke-width="10"/>
+  <line class="pipe" x1="1200" y1="780" x2="1300" y2="780" stroke-width="10"/>
+  <path class="pipe" d="M 1200 780 Q 1170 780 1170 750" stroke-width="10"/>
+  <line class="pipe" x1="1170" y1="610" x2="1170" y2="750" stroke-width="10"/>
+  <!-- Ligne jusqu'en bas droite -->
+  <line class="pipe" x1="1330" y1="750" x2="1330" y2="910" stroke-width="10"/>
+
+  <!-- Réseau secondaire haut-droit -->
+  <line class="pipe-thin" x1="950" y1="-10" x2="950" y2="100" stroke-width="8"/>
+  <path class="pipe-thin" d="M 950 100 Q 950 120 975 120" stroke-width="8"/>
+  <line class="pipe-thin" x1="975" y1="120" x2="1200" y2="120" stroke-width="8"/>
+  <path class="pipe-thin" d="M 1200 120 Q 1220 120 1220 140" stroke-width="8"/>
+  <line class="pipe-thin" x1="1220" y1="140" x2="1220" y2="200" stroke-width="8"/>
+
+  <!-- Tuyau diagonal droite -->
+  <line class="pipe-thin" x1="1100" y1="350" x2="1450" y2="350" stroke-width="8"/>
+  <path class="pipe-thin" d="M 1100 350 Q 1100 380 1070 380" stroke-width="8"/>
+  <line class="pipe-thin" x1="1070" y1="380" x2="1070" y2="610" stroke-width="8"/>
+
+  <!-- === JOINTS ET BRIDES (circles at intersections) === -->
+  <!-- Grands joints -->
+  <circle class="joint" cx="345" cy="130" r="10"/>
+  <circle class="joint" cx="345" cy="400" r="12"/>
+  <circle class="joint" cx="345" cy="650" r="10"/>
+  <circle class="joint" cx="500" cy="280" r="12"/>
+  <circle class="joint" cx="830" cy="280" r="12"/>
+  <circle class="joint" cx="830" cy="400" r="10"/>
+  <circle class="joint" cx="830" cy="580" r="12"/>
+  <circle class="joint" cx="1050" cy="200" r="12"/>
+  <circle class="joint" cx="1330" cy="450" r="10"/>
+  <circle class="joint" cx="1330" cy="750" r="10"/>
+  <circle class="joint" cx="1230" cy="610" r="12"/>
+  <circle class="joint" cx="500" cy="580" r="10"/>
+  <circle class="joint" cx="620" cy="400" r="10"/>
+  <circle class="joint" cx="120" cy="130" r="9"/>
+  <circle class="joint" cx="1300" cy="200" r="9"/>
+  <circle class="joint" cx="1170" cy="610" r="9"/>
+
+  <!-- Joints moyens -->
+  <circle class="joint" cx="295" cy="180" r="7"/>
+  <circle class="joint" cx="295" cy="320" r="7"/>
+  <circle class="joint" cx="270" cy="155" r="7"/>
+  <circle class="joint" cx="800" cy="280" r="9"/>
+  <circle class="joint" cx="800" cy="450" r="7"/>
+  <circle class="joint" cx="1050" cy="100" r="7"/>
+  <circle class="joint" cx="950" cy="100" r="7"/>
+  <circle class="joint" cx="1200" cy="120" r="7"/>
+  <circle class="joint" cx="1200" cy="780" r="7"/>
+  <circle class="joint" cx="1100" cy="350" r="7"/>
+  <circle class="joint" cx="1070" cy="380" r="7"/>
+
+  <!-- === VANNES (rectangles sur les tuyaux) === -->
+  <!-- Vanne sur tuyau horizontal principal -->
+  <rect class="valve" x="440" y="123" width="24" height="14" rx="2" stroke-width="2"/>
+  <line class="valve" x1="452" y1="115" x2="452" y2="123" stroke-width="2"/>
+  <line class="valve" x1="440" y1="112" x2="464" y2="112" stroke-width="2"/>
+
+  <!-- Vanne verticale -->
+  <rect class="valve" x="338" y="260" width="14" height="24" rx="2" stroke-width="2"/>
+  <line class="valve" x1="330" y1="272" x2="338" y2="272" stroke-width="2"/>
+  <line class="valve" x1="327" y1="260" x2="327" y2="284" stroke-width="2"/>
+
+  <!-- Vanne réseau central -->
+  <rect class="valve" x="493" y="395" width="14" height="24" rx="2" stroke-width="2"/>
+  <line class="valve" x1="485" y1="407" x2="493" y2="407" stroke-width="2"/>
+  <line class="valve" x1="482" y1="395" x2="482" y2="419" stroke-width="2"/>
+
+  <!-- Vanne gros tuyau -->
+  <rect class="valve" x="648" y="272" width="28" height="16" rx="2" stroke-width="2"/>
+  <line class="valve" x1="662" y1="262" x2="662" y2="272" stroke-width="2"/>
+  <line class="valve" x1="648" y1="259" x2="676" y2="259" stroke-width="2"/>
+
+  <!-- Vanne réseau droit -->
+  <rect class="valve" x="1150" y="193" width="28" height="14" rx="2" stroke-width="2"/>
+  <line class="valve" x1="1164" y1="183" x2="1164" y2="193" stroke-width="2"/>
+  <line class="valve" x1="1150" y1="180" x2="1178" y2="180" stroke-width="2"/>
+
+  <!-- Vanne secondaire -->
+  <rect class="valve" x="1323" y="340" width="14" height="22" rx="2" stroke-width="2"/>
+  <line class="valve" x1="1315" y1="351" x2="1323" y2="351" stroke-width="2"/>
+  <line class="valve" x1="1312" y1="340" x2="1312" y2="362" stroke-width="2"/>
+
+  <!-- === COMPTEURS / MANOMÈTRES === -->
+  <circle class="valve" cx="200" cy="230" r="14" stroke-width="2"/>
+  <line class="valve" x1="200" y1="230" x2="207" y2="220" stroke-width="1.5"/>
+  <circle class="bolt" cx="200" cy="230" r="2"/>
+
+  <circle class="valve" cx="680" cy="280" r="12" stroke-width="2"/>
+  <line class="valve" x1="680" y1="280" x2="687" y2="271" stroke-width="1.5"/>
+  <circle class="bolt" cx="680" cy="280" r="2"/>
+
+  <circle class="valve" cx="1100" cy="610" r="12" stroke-width="2"/>
+  <line class="valve" x1="1100" y1="610" x2="1107" y2="601" stroke-width="1.5"/>
+  <circle class="bolt" cx="1100" cy="610" r="2"/>
+
+  <!-- === BOULONS SUR LES BRIDES === -->
+  <circle class="bolt" cx="337" cy="130" r="3.5"/>
+  <circle class="bolt" cx="353" cy="130" r="3.5"/>
+  <circle class="bolt" cx="337" cy="400" r="3.5"/>
+  <circle class="bolt" cx="353" cy="400" r="3.5"/>
+  <circle class="bolt" cx="493" cy="280" r="3.5"/>
+  <circle class="bolt" cx="507" cy="280" r="3.5"/>
+  <circle class="bolt" cx="823" cy="280" r="3.5"/>
+  <circle class="bolt" cx="837" cy="280" r="3.5"/>
+  <circle class="bolt" cx="1043" cy="200" r="3.5"/>
+  <circle class="bolt" cx="1057" cy="200" r="3.5"/>
+  <circle class="bolt" cx="1323" cy="450" r="3.5"/>
+  <circle class="bolt" cx="1337" cy="450" r="3.5"/>
+</svg>

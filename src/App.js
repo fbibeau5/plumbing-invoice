@@ -635,7 +635,7 @@ export default function App() {
 
   // ── LOGIN SCREEN ──────────────────────────────────────────────────────────
   if (!authed) return (
-    <div style={{ minHeight: '100vh', background: '#0f1628', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui,-apple-system,sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#0f1628', backgroundImage: 'url(/bg-pipes.svg)', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui,-apple-system,sans-serif' }}>
       <div style={{ background: '#1e2a4a', border: '1px solid #2d3d6a', borderRadius: 16, padding: '40px 32px', width: '100%', maxWidth: 360, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ width: 60, height: 60, background: '#1a6bb5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, margin: '0 auto 20px' }}>🔧</div>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 4 }}>Révolution<span style={{ color: '#4a90d9' }}> Facturation</span></div>
@@ -667,7 +667,7 @@ export default function App() {
       { id: 'margins', icon: '📊', label: 'Marges' },
     ];
     return (
-      <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui,-apple-system,sans-serif', color: C.text, paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
+      <div style={{ minHeight: '100vh', background: C.bg, backgroundImage: 'url(/bg-pipes.svg)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', fontFamily: 'system-ui,-apple-system,sans-serif', color: C.text, paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
         <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 90, right: 12, width: 130, height: 130, borderRadius: '50%', objectFit: 'cover', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }} />
         {/* Mobile Header */}
         <div style={{ background: C.header, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
@@ -1085,7 +1085,7 @@ export default function App() {
 
   // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "system-ui, -apple-system, sans-serif", color: C.text }}>
+    <div style={{ minHeight: "100vh", background: C.bg, backgroundImage: 'url(/bg-pipes.svg)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', fontFamily: "system-ui, -apple-system, sans-serif", color: C.text }}>
       <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 24, right: 24, width: 160, height: 160, borderRadius: '50%', objectFit: 'cover', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }} />
       {/* Header */}
       <div style={{ background: C.header, padding: "0 24px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
