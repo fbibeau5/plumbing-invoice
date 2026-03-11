@@ -583,7 +583,7 @@ export default function App() {
   }, []);
 
   // Sync historique depuis le serveur au démarrage (fusion local + serveur)
-  useEffect(() => {
+  const syncHistory = useCallback(() => {
     setHistorySync('sync');
     fetch('/api/history-data')
       .then(r => r.ok ? r.json() : null)
@@ -591,7 +591,6 @@ export default function App() {
         if (!Array.isArray(serverHistory)) { setHistorySync('offline'); return; }
         setListHistory(prev => {
           const map = new Map();
-          // On met le local en premier pour conserver l'ordre si même id
           [...prev, ...serverHistory].forEach(e => { if (e && e.id) map.set(e.id, e); });
           const merged = [...map.values()]
             .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt))
@@ -602,9 +601,17 @@ export default function App() {
         setHistorySync('ok');
         setTimeout(() => setHistorySync(null), 2000);
       })
-      .catch(() => { setHistorySync('offline'); setTimeout(() => setHistorySync(null), 3000); });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      .catch(() => { setHistorySync('offline'); setTimeout(() => setHistorySync(null), 4000); });
   }, []);
+
+  // Sync au démarrage
+  useEffect(() => { syncHistory(); }, [syncHistory]);
+
+  // Sync automatique toutes les 60 secondes
+  useEffect(() => {
+    const interval = setInterval(() => { syncHistory(); }, 60000);
+    return () => clearInterval(interval);
+  }, [syncHistory]);
 
   const handleLogin = () => {
     if (pwInput === PASSWORD) {
@@ -948,9 +955,12 @@ export default function App() {
                 <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
                   🕐 Listes sauvegardées ({listHistory.length})
                 </div>
-                {historySync === 'sync' && <div style={{ fontSize: 11, color: C.textMuted }}>⟳ Sync…</div>}
-                {historySync === 'ok' && <div style={{ fontSize: 11, color: '#16a34a' }}>✓ Synchronisé</div>}
-                {historySync === 'offline' && <div style={{ fontSize: 11, color: '#c0392b' }}>📵 Hors-ligne</div>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {historySync === 'sync' && <div style={{ fontSize: 11, color: C.textMuted }}>⟳ Sync…</div>}
+                  {historySync === 'ok' && <div style={{ fontSize: 11, color: '#16a34a' }}>✓ Synchronisé</div>}
+                  {historySync === 'offline' && <div style={{ fontSize: 11, color: '#c0392b' }}>📵 Hors-ligne</div>}
+                  <button onClick={() => syncHistory()} disabled={historySync === 'sync'} style={{ padding: '5px 10px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, touchAction: 'manipulation', opacity: historySync === 'sync' ? 0.5 : 1 }}>🔄</button>
+                </div>
               </div>
               {listHistory.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 20px', color: C.textLight, fontSize: 14 }}>
@@ -1055,7 +1065,7 @@ export default function App() {
         {/* Bottom Nav */}
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.header, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {mTabs.map(({ id, icon, label }) => (
-            <button key={id} onClick={() => setTab(id)} style={{ flex: 1, padding: '10px 4px 12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
+            <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); }} style={{ flex: 1, padding: '10px 4px 12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
               <span style={{ fontSize: 22 }}>{icon}</span>
               <span style={{ fontSize: 10, color: tab === id ? C.accent : 'rgba(255,255,255,0.5)', fontWeight: tab === id ? 700 : 400 }}>{label}</span>
             </button>
@@ -1081,7 +1091,7 @@ export default function App() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"]].map(([id, label]) => (
-              <button key={id} onClick={() => setTab(id)} style={{
+              <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); }} style={{
                 padding: "8px 18px", background: tab === id ? C.accent : "rgba(255,255,255,0.1)",
                 border: `1px solid ${tab === id ? C.accent : "rgba(255,255,255,0.2)"}`,
                 borderRadius: 6, color: "white",
@@ -1353,9 +1363,12 @@ export default function App() {
               <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>
                 🕐 Listes sauvegardées ({listHistory.length})
               </div>
-              {historySync === 'sync' && <div style={{ fontSize: 12, color: C.textMuted }}>⟳ Synchronisation…</div>}
-              {historySync === 'ok' && <div style={{ fontSize: 12, color: '#16a34a' }}>✓ Synchronisé avec tous les appareils</div>}
-              {historySync === 'offline' && <div style={{ fontSize: 12, color: '#c0392b' }}>📵 Hors-ligne — local seulement</div>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {historySync === 'sync' && <div style={{ fontSize: 12, color: C.textMuted }}>⟳ Synchronisation…</div>}
+                {historySync === 'ok' && <div style={{ fontSize: 12, color: '#16a34a' }}>✓ Synchronisé avec tous les appareils</div>}
+                {historySync === 'offline' && <div style={{ fontSize: 12, color: '#c0392b' }}>📵 Hors-ligne — local seulement</div>}
+                <button onClick={() => syncHistory()} disabled={historySync === 'sync'} style={{ padding: '6px 12px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, opacity: historySync === 'sync' ? 0.5 : 1 }}>🔄 Rafraîchir</button>
+              </div>
             </div>
             {listHistory.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: C.textLight, fontSize: 14 }}>
