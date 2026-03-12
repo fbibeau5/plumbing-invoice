@@ -164,8 +164,12 @@ export default function App() {
   const [catalogSync, setCatalogSync] = useState(null);
   const [editingHistoryId, setEditingHistoryId] = useState(null);
   const [editHistoryForm, setEditHistoryForm] = useState({ clientName: '', jobDesc: '', invoiceNum: '' });
+  const [jobAddress, setJobAddress] = useState('');
+  const [margeBonus, setMargeBonus] = useState(0); // 0 | 0.05 | 0.10 | 0.15 | 0.20
 
-  const subtotal = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
+  const subtotalBase = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
+  const bonusAmount = subtotalBase * margeBonus;
+  const subtotal = subtotalBase + bonusAmount;
   const tps = subtotal * TPS;
   const tvq = subtotal * TVQ;
   const total = subtotal + tps + tvq;
@@ -465,7 +469,9 @@ export default function App() {
   };
 
   const printInvoice = () => {
-    const sub = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
+    // Le sous-total PDF inclut silencieusement la marge bonus (non affichée au client)
+    const subBase = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
+    const sub = subBase * (1 + margeBonus);
     const tpsAmt = sub * TPS;
     const tvqAmt = sub * TVQ;
     const tot = sub + tpsAmt + tvqAmt;
@@ -475,8 +481,8 @@ export default function App() {
         <td>${item.product.name}</td>
         <td>${item.product.dim}</td>
         <td style="text-align:center">${item.qty}</td>
-        <td style="text-align:right">${fmt(item.product.sell)}</td>
-        <td style="text-align:right">${fmt(item.qty * item.product.sell)}</td>
+        <td style="text-align:right">${fmt(item.product.sell * (1 + margeBonus))}</td>
+        <td style="text-align:right">${fmt(item.qty * item.product.sell * (1 + margeBonus))}</td>
       </tr>`).join('');
 
     const html = `<!DOCTYPE html><html><head>
@@ -499,6 +505,7 @@ export default function App() {
         <h1>🔧 Révolution Facturation</h1>
         <p><strong>Facture #${invoiceNum}</strong></p>
         ${clientName ? `<p>Client: ${clientName}</p>` : ''}
+        ${jobAddress ? `<p>Adresse: ${jobAddress}</p>` : ''}
         ${jobDesc ? `<p>Travaux: ${jobDesc}</p>` : ''}
         <p style="color:#999;font-size:12px">${new Date().toLocaleDateString('fr-CA')}</p>
       </div>
@@ -758,7 +765,7 @@ export default function App() {
             <div>
               {/* Client info compact */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-                {[['Client', clientName, setClientName], ['Description', jobDesc, setJobDesc], ['Facture #', invoiceNum, setInvoiceNum]].map(([label, val, setter]) => (
+                {[['Client', clientName, setClientName], ['Adresse des travaux', jobAddress, setJobAddress], ['Description', jobDesc, setJobDesc], ['Facture #', invoiceNum, setInvoiceNum]].map(([label, val, setter]) => (
                   <div key={label}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
                     <input value={val} onChange={e => setter(e.target.value)} style={{ width: '100%', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '11px 14px', color: C.text, fontFamily: 'inherit', fontSize: 16, outline: 'none', boxSizing: 'border-box' }} />
@@ -797,14 +804,38 @@ export default function App() {
               )}
 
               {/* Totals */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
-                {[['Sous-total', subtotal], ['TPS (5%)', tps], ['TVQ (9.975%)', tvq]].map(([label, val]) => (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${C.rowBorder}`, fontSize: 14, color: C.textMuted }}>
+                  <span>Sous-total</span><span>{fmt(subtotalBase)}</span>
+                </div>
+                {margeBonus > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${C.rowBorder}`, fontSize: 14, color: '#16a34a', fontWeight: 600 }}>
+                    <span>📈 Marge +{Math.round(margeBonus * 100)}%</span><span>+{fmt(bonusAmount)}</span>
+                  </div>
+                )}
+                {[['TPS (5%)', tps], ['TVQ (9.975%)', tvq]].map(([label, val]) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${C.rowBorder}`, fontSize: 14, color: C.textMuted }}>
                     <span>{label}</span><span>{fmt(val)}</span>
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, fontSize: 22, fontWeight: 700 }}>
                   <span>TOTAL</span><span style={{ color: C.accent }}>{fmt(total)}</span>
+                </div>
+              </div>
+
+              {/* Marge bonus buttons - visible app seulement */}
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>📈 Bonification de marge (interne)</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {[0, 5, 10, 15, 20].map(pct => (
+                    <button key={pct} onClick={() => setMargeBonus(pct / 100)}
+                      style={{ flex: 1, minWidth: 52, padding: '10px 4px', background: margeBonus === pct / 100 ? (pct === 0 ? C.inputBg : '#16a34a') : C.inputBg,
+                        border: `2px solid ${margeBonus === pct / 100 ? (pct === 0 ? C.border : '#16a34a') : C.border}`,
+                        borderRadius: 8, color: margeBonus === pct / 100 ? (pct === 0 ? C.textMuted : 'white') : C.textMuted,
+                        cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, touchAction: 'manipulation' }}>
+                      {pct === 0 ? 'Aucune' : `+${pct}%`}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -820,7 +851,7 @@ export default function App() {
                   🖨️ Imprimer / PDF
                 </button>
                 {invoiceItems.length > 0 && (
-                  <button onClick={() => { if (window.confirm('Effacer la liste actuelle et commencer une nouvelle facture?')) { setInvoiceItems([]); setClientName(''); setJobDesc(''); setInvoiceNum('001'); setTab('parse'); } }} style={{ padding: 12, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 10, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>
+                  <button onClick={() => { if (window.confirm('Effacer la liste actuelle et commencer une nouvelle facture?')) { setInvoiceItems([]); setClientName(''); setJobAddress(''); setJobDesc(''); setInvoiceNum('001'); setMargeBonus(0); setTab('parse'); } }} style={{ padding: 12, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 10, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>
                     🗑️ Nouvelle facture
                   </button>
                 )}
@@ -1266,10 +1297,11 @@ export default function App() {
         {/* INVOICE TAB */}
         {tab === "invoice" && (
           <div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
               {[
                 ["Facture #", invoiceNum, setInvoiceNum],
                 ["Client / Société", clientName, setClientName],
+                ["Adresse des travaux", jobAddress, setJobAddress],
                 ["Description du travail", jobDesc, setJobDesc],
               ].map(([label, val, setter]) => (
                 <div key={label}>
@@ -1341,8 +1373,16 @@ export default function App() {
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-                <div style={{ width: 320, background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
-                  {[["Sous-total", subtotal], ["TPS (5%)", tps], ["TVQ (9.975%)", tvq]].map(([label, val]) => (
+                <div style={{ width: 340, background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${C.rowBorder}`, fontSize: 13, color: C.textMuted }}>
+                    <span>Sous-total</span><span>{fmt(subtotalBase)}</span>
+                  </div>
+                  {margeBonus > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${C.rowBorder}`, fontSize: 13, color: "#16a34a", fontWeight: 600 }}>
+                      <span>📈 Marge +{Math.round(margeBonus * 100)}%</span><span>+{fmt(bonusAmount)}</span>
+                    </div>
+                  )}
+                  {[["TPS (5%)", tps], ["TVQ (9.975%)", tvq]].map(([label, val]) => (
                     <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${C.rowBorder}`, fontSize: 13, color: C.textMuted }}>
                       <span>{label}</span><span>{fmt(val)}</span>
                     </div>
@@ -1355,6 +1395,19 @@ export default function App() {
             </div>
 
             <div style={{ display: "flex", gap: 12, marginTop: 20, alignItems: "center", flexWrap: "wrap" }}>
+              {/* Marge bonus buttons - visible app seulement */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, whiteSpace: "nowrap" }}>📈 Marge :</span>
+                {[0, 5, 10, 15, 20].map(pct => (
+                  <button key={pct} onClick={() => setMargeBonus(pct / 100)}
+                    style={{ padding: "6px 10px", background: margeBonus === pct / 100 ? (pct === 0 ? C.inputBg : "#16a34a") : C.inputBg,
+                      border: `2px solid ${margeBonus === pct / 100 ? (pct === 0 ? C.border : "#16a34a") : C.border}`,
+                      borderRadius: 6, color: margeBonus === pct / 100 ? (pct === 0 ? C.textMuted : "white") : C.textMuted,
+                      cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700 }}>
+                    {pct === 0 ? "—" : `+${pct}%`}
+                  </button>
+                ))}
+              </div>
               <button onClick={() => setTab("catalog")} style={{ padding: "10px 20px", background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
                 + Ajouter depuis catalogue
               </button>
@@ -1365,7 +1418,7 @@ export default function App() {
                 🖨️ Imprimer / PDF
               </button>
               {invoiceItems.length > 0 && (
-                <button onClick={() => { if (window.confirm('Effacer la liste actuelle et commencer une nouvelle facture?')) { setInvoiceItems([]); setClientName(''); setJobDesc(''); setInvoiceNum('001'); setTab('parse'); } }} style={{ padding: "10px 16px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
+                <button onClick={() => { if (window.confirm('Effacer la liste actuelle et commencer une nouvelle facture?')) { setInvoiceItems([]); setClientName(''); setJobAddress(''); setJobDesc(''); setInvoiceNum('001'); setMargeBonus(0); setTab('parse'); } }} style={{ padding: "10px 16px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
                   🗑️ Nouvelle facture
                 </button>
               )}
