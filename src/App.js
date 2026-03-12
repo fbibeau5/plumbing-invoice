@@ -485,29 +485,34 @@ export default function App() {
         <td style="text-align:right">${fmt(item.qty * item.product.sell * (1 + margeBonus))}</td>
       </tr>`).join('');
 
+    const logoUrl = window.location.origin + (process.env.PUBLIC_URL || '') + '/logo.svg';
     const html = `<!DOCTYPE html><html><head>
       <meta charset="utf-8"/>
       <title>Facture ${invoiceNum}</title>
       <style>
         body{font-family:Arial,sans-serif;padding:24px;color:#1a1a1a;font-size:14px}
         h1{font-size:1.4em;margin:0 0 4px}p{margin:2px 0;color:#555}
-        .header{margin-bottom:20px;border-bottom:2px solid #1a1a1a;padding-bottom:12px}
+        .header{margin-bottom:20px;border-bottom:2px solid #0c2240;padding-bottom:14px;display:flex;align-items:center;gap:20px}
+        .header-info{flex:1}
+        .header img{height:72px;width:auto;display:block}
         table{width:100%;border-collapse:collapse;margin-top:16px}
         th{background:#f3f4f6;padding:8px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
         td{padding:8px;border-bottom:1px solid #e5e7eb}
         tr:last-child td{border:none}
         .totals{margin-top:12px;text-align:right}
         .totals div{padding:3px 0;font-size:13px;color:#555}
-        .grand-total{background:#1a1a1a;color:white;padding:10px 14px;border-radius:6px;font-size:1.1em;font-weight:700;margin-top:8px;display:inline-block}
+        .grand-total{background:#0c2240;color:white;padding:10px 14px;border-radius:6px;font-size:1.1em;font-weight:700;margin-top:8px;display:inline-block}
       </style>
     </head><body>
       <div class="header">
-        <h1>🔧 Révolution Facturation</h1>
-        <p><strong>Facture #${invoiceNum}</strong></p>
-        ${clientName ? `<p>Client: ${clientName}</p>` : ''}
-        ${jobAddress ? `<p>Adresse: ${jobAddress}</p>` : ''}
-        ${jobDesc ? `<p>Travaux: ${jobDesc}</p>` : ''}
-        <p style="color:#999;font-size:12px">${new Date().toLocaleDateString('fr-CA')}</p>
+        <img src="${logoUrl}" alt="Révolution Plomberie"/>
+        <div class="header-info">
+          <p><strong>Facture #${invoiceNum}</strong></p>
+          ${clientName ? `<p>Client: ${clientName}</p>` : ''}
+          ${jobAddress ? `<p>Adresse: ${jobAddress}</p>` : ''}
+          ${jobDesc ? `<p>Travaux: ${jobDesc}</p>` : ''}
+          <p style="color:#999;font-size:12px">${new Date().toLocaleDateString('fr-CA')}</p>
+        </div>
       </div>
       <table>
         <thead><tr>
@@ -651,6 +656,7 @@ export default function App() {
   if (!authed) return (
     <div style={{ minHeight: '100vh', background: '#0f1628', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui,-apple-system,sans-serif', position: 'relative' }}>
       <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.22, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
+      <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '55vw', maxWidth: 520, opacity: 0.07, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
       <div style={{ position: 'relative', zIndex: 1, background: '#1e2a4a', border: '1px solid #2d3d6a', borderRadius: 16, padding: '40px 32px', width: '100%', maxWidth: 360, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ width: 60, height: 60, background: '#1a6bb5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, margin: '0 auto 20px' }}>🔧</div>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 4 }}>Révolution<span style={{ color: '#4a90d9' }}> Facturation</span></div>
@@ -684,6 +690,7 @@ export default function App() {
     return (
       <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui,-apple-system,sans-serif', color: C.text, paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
         <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.14, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
+        <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '90vw', maxWidth: 420, opacity: 0.06, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
         <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 90, right: 12, width: 130, height: 130, borderRadius: '50%', objectFit: 'cover', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }} />
         {/* Mobile Header */}
         <div style={{ background: C.header, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
@@ -1127,6 +1134,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "system-ui, -apple-system, sans-serif", color: C.text }}>
       <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.14, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
+      <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '45vw', maxWidth: 600, opacity: 0.06, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
       <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 24, right: 24, width: 160, height: 160, borderRadius: '50%', objectFit: 'cover', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }} />
       {/* Header */}
       <div style={{ background: C.header, padding: "0 24px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
