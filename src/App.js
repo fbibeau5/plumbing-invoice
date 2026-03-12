@@ -656,7 +656,7 @@ export default function App() {
   if (!authed) return (
     <div style={{ minHeight: '100vh', background: '#0f1628', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui,-apple-system,sans-serif', position: 'relative' }}>
       <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.22, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
-      <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '55vw', maxWidth: 520, opacity: 0.07, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
+      <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '55vw', maxWidth: 520, opacity: 0.18, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
       <div style={{ position: 'relative', zIndex: 1, background: '#1e2a4a', border: '1px solid #2d3d6a', borderRadius: 16, padding: '40px 32px', width: '100%', maxWidth: 360, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ width: 60, height: 60, background: '#1a6bb5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, margin: '0 auto 20px' }}>🔧</div>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 4 }}>Révolution<span style={{ color: '#4a90d9' }}> Facturation</span></div>
@@ -690,7 +690,7 @@ export default function App() {
     return (
       <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui,-apple-system,sans-serif', color: C.text, paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
         <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.14, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
-        <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '90vw', maxWidth: 420, opacity: 0.06, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
+        <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '90vw', maxWidth: 420, opacity: 0.15, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
         <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 90, right: 12, width: 130, height: 130, borderRadius: '50%', objectFit: 'cover', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }} />
         {/* Mobile Header */}
         <div style={{ background: C.header, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
@@ -1134,7 +1134,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "system-ui, -apple-system, sans-serif", color: C.text }}>
       <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.14, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
-      <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '45vw', maxWidth: 600, opacity: 0.06, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
+      <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '45vw', maxWidth: 600, opacity: 0.15, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
       <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 24, right: 24, width: 160, height: 160, borderRadius: '50%', objectFit: 'cover', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }} />
       {/* Header */}
       <div style={{ background: C.header, padding: "0 24px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
