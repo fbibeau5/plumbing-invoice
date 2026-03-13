@@ -196,7 +196,7 @@ export default async function handler(req, res) {
             return {
               description:       `${item.product.name}${dim}`,
               quantity:          parseFloat(item.qty),
-              unit_price:        parseFloat(item.product.sell.toFixed(2)),
+              unit_price:        parseFloat((item.product.sell || 0).toFixed(2)),
               ...(ledgerId ? { ledger_account_id: ledgerId } : {}),
             };
           });
@@ -353,7 +353,7 @@ async function callAction(action, token) {
             return {
               description: `${item.product.name}${dim}`,
               quantity:    parseFloat(item.qty),
-              unit_price:  parseFloat(item.product.sell.toFixed(2)),
+              unit_price:  parseFloat((item.product.sell || 0).toFixed(2)),
               ...(ledgerId ? { ledger_account_id: ledgerId } : {}),
             };
           });
