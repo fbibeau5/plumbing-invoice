@@ -190,6 +190,7 @@ export default function App() {
   const [evForm, setEvForm] = useState(EMPTY_EV_FORM);
   const [sigState, setSigState] = useState(EMPTY_SIG_STATE); // pad de signature
   const [sigCanvasRef] = useState({ current: null });
+  const [reminderSending, setReminderSending] = useState({}); // { [eventId]: 'sending'|'ok'|'err' }
 
   const subtotalBase = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const bonusAmount = subtotalBase * margeBonus;
@@ -807,6 +808,33 @@ export default function App() {
     setSigState(EMPTY_SIG_STATE);
   };
 
+  const sendEventReminder = async (ev, type = 'reminder') => {
+    if (!ev.clientEmail) {
+      alert('Aucun courriel client enregistré pour ce rendez-vous.');
+      return;
+    }
+    setReminderSending(p => ({ ...p, [ev.id + '_' + type]: 'sending' }));
+    try {
+      const res = await fetch('/api/send-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: ev, type, lang: 'fr' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setReminderSending(p => ({ ...p, [ev.id + '_' + type]: 'ok' }));
+        setTimeout(() => setReminderSending(p => { const n={...p}; delete n[ev.id + '_' + type]; return n; }), 3000);
+      } else {
+        setReminderSending(p => ({ ...p, [ev.id + '_' + type]: 'err' }));
+        setTimeout(() => setReminderSending(p => { const n={...p}; delete n[ev.id + '_' + type]; return n; }), 4000);
+        alert('Erreur envoi: ' + (data.error || 'Inconnue'));
+      }
+    } catch(e) {
+      setReminderSending(p => ({ ...p, [ev.id + '_' + type]: 'err' }));
+      setTimeout(() => setReminderSending(p => { const n={...p}; delete n[ev.id + '_' + type]; return n; }), 4000);
+    }
+  };
+
   const handleLogin = () => {
     if (pwInput === PASSWORD) {
       localStorage.setItem('plomb_auth', JSON.stringify({ ts: Date.now() }));
@@ -1233,10 +1261,24 @@ export default function App() {
                           <span style={{ fontSize:11, fontWeight:700, color:'white', background:EV_COLORS[ev.status]||C.accent, borderRadius:4, padding:'2px 7px' }}>{EV_LABELS[ev.status]||ev.status}</span>
                         </div>
                       </div>
-                      <div style={{ display:'flex', gap:6, marginTop:10 }}>
+                      <div style={{ display:'flex', gap:6, marginTop:10, flexWrap:'wrap' }}>
                         <button onClick={() => openEditEvent(ev)} style={{ flex:1, padding:'8px 0', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>✏️ Modifier</button>
                         {ev.needsSignature && !ev.signature && <button onClick={() => setSigState({ eventId:ev.id })} style={{ flex:1, padding:'8px 0', background:'#d97706', border:'none', borderRadius:8, color:'white', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>✍️ Signature</button>}
                         {ev.signature && <button onClick={() => setSigState({ eventId:ev.id, viewOnly:true, sigData:ev.signature })} style={{ flex:1, padding:'8px 0', background:'#16a34a', border:'none', borderRadius:8, color:'white', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>✅ Signé</button>}
+                        {ev.clientEmail && (
+                          <button
+                            onClick={() => sendEventReminder(ev, 'reminder')}
+                            disabled={reminderSending[ev.id+'_reminder']==='sending'}
+                            style={{ flex:1, minWidth:80, padding:'8px 0', background: reminderSending[ev.id+'_reminder']==='ok'?'#16a34a': reminderSending[ev.id+'_reminder']==='err'?'#c0392b':'#0c2240', border:'none', borderRadius:8, color:'white', fontSize:12, cursor:'pointer', fontFamily:'inherit', opacity: reminderSending[ev.id+'_reminder']==='sending'?0.7:1 }}
+                          >{reminderSending[ev.id+'_reminder']==='sending'?'⏳':reminderSending[ev.id+'_reminder']==='ok'?'✅ Envoyé':reminderSending[ev.id+'_reminder']==='err'?'❌ Erreur':'📧 Rappel'}</button>
+                        )}
+                        {ev.clientEmail && (
+                          <button
+                            onClick={() => sendEventReminder(ev, 'confirmation')}
+                            disabled={reminderSending[ev.id+'_confirmation']==='sending'}
+                            style={{ flex:1, minWidth:90, padding:'8px 0', background: reminderSending[ev.id+'_confirmation']==='ok'?'#16a34a': reminderSending[ev.id+'_confirmation']==='err'?'#c0392b':'#1a6bb5', border:'none', borderRadius:8, color:'white', fontSize:12, cursor:'pointer', fontFamily:'inherit', opacity: reminderSending[ev.id+'_confirmation']==='sending'?0.7:1 }}
+                          >{reminderSending[ev.id+'_confirmation']==='sending'?'⏳':reminderSending[ev.id+'_confirmation']==='ok'?'✅ Envoyé':reminderSending[ev.id+'_confirmation']==='err'?'❌ Erreur':'✅ Confirmer'}</button>
+                        )}
                         <button onClick={() => { if(window.confirm('Supprimer ce rendez-vous?')) deleteScheduleEvent(ev.id); }} style={{ padding:'8px 12px', background:'transparent', border:`1px solid #c0392b`, borderRadius:8, color:'#c0392b', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>🗑️</button>
                       </div>
                     </div>
@@ -1746,10 +1788,24 @@ export default function App() {
                       <div style={{ fontSize:12, color:C.textMuted }}>🕐 {ev.time}{ev.duration ? ` (${ev.duration}h)` : ''}</div>
                       {ev.notes && <div style={{ fontSize:12, color:C.textMuted, marginTop:4, fontStyle:'italic' }}>{ev.notes}</div>}
                       {ev.signature && <div style={{ fontSize:11, color:'#16a34a', marginTop:4 }}>✅ Entente signée le {ev.signedAt ? new Date(ev.signedAt).toLocaleDateString('fr-CA') : ''}</div>}
-                      <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                      <div style={{ display:'flex', gap:6, marginTop:10, flexWrap:'wrap' }}>
                         <button onClick={() => openEditEvent(ev)} style={{ flex:1, padding:'7px 0', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>✏️ Modifier</button>
                         {ev.needsSignature && !ev.signature && <button onClick={() => setSigState({ eventId:ev.id })} style={{ flex:1, padding:'7px 0', background:'#d97706', border:'none', borderRadius:6, color:'white', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>✍️ Signature</button>}
                         {ev.signature && <button onClick={() => setSigState({ eventId:ev.id, viewOnly:true, sigData:ev.signature })} style={{ flex:1, padding:'7px 0', background:'#16a34a', border:'none', borderRadius:6, color:'white', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>✅ Signé</button>}
+                        {ev.clientEmail && (
+                          <button
+                            onClick={() => sendEventReminder(ev, 'reminder')}
+                            disabled={reminderSending[ev.id+'_reminder']==='sending'}
+                            style={{ flex:1, minWidth:70, padding:'7px 0', background: reminderSending[ev.id+'_reminder']==='ok'?'#16a34a': reminderSending[ev.id+'_reminder']==='err'?'#c0392b':'#0c2240', border:'none', borderRadius:6, color:'white', fontSize:11, cursor:'pointer', fontFamily:'inherit', opacity: reminderSending[ev.id+'_reminder']==='sending'?0.7:1 }}
+                          >{reminderSending[ev.id+'_reminder']==='sending'?'⏳':reminderSending[ev.id+'_reminder']==='ok'?'✅':reminderSending[ev.id+'_reminder']==='err'?'❌':'📧 Rappel'}</button>
+                        )}
+                        {ev.clientEmail && (
+                          <button
+                            onClick={() => sendEventReminder(ev, 'confirmation')}
+                            disabled={reminderSending[ev.id+'_confirmation']==='sending'}
+                            style={{ flex:1, minWidth:80, padding:'7px 0', background: reminderSending[ev.id+'_confirmation']==='ok'?'#16a34a': reminderSending[ev.id+'_confirmation']==='err'?'#c0392b':'#1a6bb5', border:'none', borderRadius:6, color:'white', fontSize:11, cursor:'pointer', fontFamily:'inherit', opacity: reminderSending[ev.id+'_confirmation']==='sending'?0.7:1 }}
+                          >{reminderSending[ev.id+'_confirmation']==='sending'?'⏳':reminderSending[ev.id+'_confirmation']==='ok'?'✅':reminderSending[ev.id+'_confirmation']==='err'?'❌':'✅ Confirmer'}</button>
+                        )}
                         <button onClick={() => { if(window.confirm('Supprimer?')) deleteScheduleEvent(ev.id); }} style={{ padding:'7px 10px', background:'transparent', border:`1px solid #c0392b`, borderRadius:6, color:'#c0392b', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>🗑️</button>
                       </div>
                     </div>
