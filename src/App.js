@@ -166,6 +166,7 @@ export default function App() {
   const [editHistoryForm, setEditHistoryForm] = useState({ clientName: '', jobDesc: '', invoiceNum: '' });
   const [jobAddress, setJobAddress] = useState('');
   const [margeBonus, setMargeBonus] = useState(0); // 0 | 0.05 | 0.10 | 0.15 | 0.20
+  const [invoiceSaved, setInvoiceSaved] = useState(false); // feedback bouton sauvegarder
 
   const subtotalBase = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const bonusAmount = subtotalBase * margeBonus;
@@ -184,9 +185,10 @@ export default function App() {
     localStorage.setItem('categoryMargins', JSON.stringify(updated));
   };
 
-  const saveToHistory = (items, client, job, num) => {
+  const saveToHistory = (items, client, job, num, bonus = 0) => {
     if (!items || items.length === 0) return;
-    const sub = items.reduce((s, i) => s + i.qty * i.product.sell, 0);
+    const subBase = items.reduce((s, i) => s + i.qty * i.product.sell, 0);
+    const sub = subBase * (1 + bonus);
     const entry = {
       id: Date.now().toString(36),
       savedAt: new Date().toISOString(),
@@ -196,8 +198,9 @@ export default function App() {
       items,
       subtotal: sub,
       total: sub * (1 + TPS + TVQ),
+      margeBonus: bonus,
     };
-    const updated = [entry, ...listHistory].slice(0, 50);
+    const updated = [entry, ...listHistory]; // pas de limite
     setListHistory(updated);
     localStorage.setItem('listHistory', JSON.stringify(updated));
     // Sync vers le serveur (tous les appareils)
@@ -206,6 +209,13 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'add', entry }),
     }).catch(() => {}); // hors-ligne : sauvegardé localement quand même
+  };
+
+  const handleSaveInvoice = () => {
+    if (!invoiceItems || invoiceItems.length === 0) return;
+    saveToHistory(invoiceItems, clientName, jobDesc, invoiceNum, margeBonus);
+    setInvoiceSaved(true);
+    setTimeout(() => setInvoiceSaved(false), 3000);
   };
 
   const deleteFromHistory = (id) => {
@@ -854,11 +864,14 @@ export default function App() {
                 <button onClick={saveToWeeklyReport} disabled={invoiceItems.length === 0} style={{ padding: 15, background: invoiceItems.length === 0 ? C.inputBg : '#16a34a', border: 'none', borderRadius: 10, color: invoiceItems.length === 0 ? C.textLight : 'white', cursor: invoiceItems.length === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}>
                   📊 Ajouter au rapport semaine
                 </button>
+                <button onClick={handleSaveInvoice} disabled={invoiceItems.length === 0} style={{ padding: 15, background: invoiceItems.length === 0 ? C.inputBg : (invoiceSaved ? '#16a34a' : '#0f4c8a'), border: 'none', borderRadius: 10, color: invoiceItems.length === 0 ? C.textLight : 'white', cursor: invoiceItems.length === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 700, transition: 'background 0.3s' }}>
+                  {invoiceSaved ? '✅ Sauvegardé !' : '💾 Sauvegarder la facture'}
+                </button>
                 <button onClick={printInvoice} style={{ padding: 15, background: C.accent, border: 'none', borderRadius: 10, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 700 }}>
                   🖨️ Imprimer / PDF
                 </button>
                 {invoiceItems.length > 0 && (
-                  <button onClick={() => { if (window.confirm('Effacer la liste actuelle et commencer une nouvelle facture?')) { setInvoiceItems([]); setClientName(''); setJobAddress(''); setJobDesc(''); setInvoiceNum('001'); setMargeBonus(0); setTab('parse'); } }} style={{ padding: 12, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 10, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>
+                  <button onClick={() => { if (window.confirm('Effacer la liste actuelle et commencer une nouvelle facture?')) { setInvoiceItems([]); setClientName(''); setJobAddress(''); setJobDesc(''); setInvoiceNum('001'); setMargeBonus(0); setInvoiceSaved(false); setTab('parse'); } }} style={{ padding: 12, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 10, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, touchAction: 'manipulation' }}>
                     🗑️ Nouvelle facture
                   </button>
                 )}
@@ -1422,11 +1435,14 @@ export default function App() {
               <button onClick={saveToWeeklyReport} disabled={invoiceItems.length === 0} style={{ padding: "10px 20px", background: invoiceItems.length === 0 ? C.inputBg : "#16a34a", border: "none", borderRadius: 6, color: invoiceItems.length === 0 ? C.textLight : "white", cursor: invoiceItems.length === 0 ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600 }}>
                 📊 Ajouter au rapport semaine
               </button>
+              <button onClick={handleSaveInvoice} disabled={invoiceItems.length === 0} style={{ padding: "10px 20px", background: invoiceItems.length === 0 ? C.inputBg : (invoiceSaved ? '#16a34a' : '#0f4c8a'), border: "none", borderRadius: 6, color: invoiceItems.length === 0 ? C.textLight : "white", cursor: invoiceItems.length === 0 ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, transition: 'background 0.3s' }}>
+                {invoiceSaved ? '✅ Sauvegardé !' : '💾 Sauvegarder la facture'}
+              </button>
               <button onClick={printInvoice} style={{ padding: "10px 24px", background: C.accent, border: "none", borderRadius: 6, color: "white", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, boxShadow: "0 2px 6px rgba(26,107,181,0.3)" }}>
                 🖨️ Imprimer / PDF
               </button>
               {invoiceItems.length > 0 && (
-                <button onClick={() => { if (window.confirm('Effacer la liste actuelle et commencer une nouvelle facture?')) { setInvoiceItems([]); setClientName(''); setJobAddress(''); setJobDesc(''); setInvoiceNum('001'); setMargeBonus(0); setTab('parse'); } }} style={{ padding: "10px 16px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
+                <button onClick={() => { if (window.confirm('Effacer la liste actuelle et commencer une nouvelle facture?')) { setInvoiceItems([]); setClientName(''); setJobAddress(''); setJobDesc(''); setInvoiceNum('001'); setMargeBonus(0); setInvoiceSaved(false); setTab('parse'); } }} style={{ padding: "10px 16px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 6, color: C.textMuted, cursor: "pointer", fontFamily: "inherit", fontSize: 13 }}>
                   🗑️ Nouvelle facture
                 </button>
               )}
