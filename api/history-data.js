@@ -6,8 +6,7 @@ const redis = new Redis({
 });
 
 const HISTORY_KEY = 'plombinvoice_history_v1';
-const MAX_ENTRIES = 50;
-const TTL = 60 * 60 * 24 * 365; // 1 an
+// Pas de limite d'entrées, pas d'expiration — historique permanent
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -29,17 +28,17 @@ export default async function handler(req, res) {
         if (!entry || !entry.id) {
           return res.status(400).json({ error: 'Entrée invalide' });
         }
-        // Déduplique par id + prépend la nouvelle entrée
+        // Déduplique par id + prépend la nouvelle entrée — aucune limite
         const filtered = existing.filter(e => e.id !== entry.id);
-        const updated = [entry, ...filtered].slice(0, MAX_ENTRIES);
-        await redis.set(HISTORY_KEY, updated, { ex: TTL });
+        const updated = [entry, ...filtered];
+        await redis.set(HISTORY_KEY, updated); // pas de TTL = permanent
         return res.status(200).json({ ok: true, count: updated.length });
       }
 
       if (action === 'delete') {
         if (!id) return res.status(400).json({ error: 'ID manquant' });
         const updated = existing.filter(e => e.id !== id);
-        await redis.set(HISTORY_KEY, updated, { ex: TTL });
+        await redis.set(HISTORY_KEY, updated);
         return res.status(200).json({ ok: true, count: updated.length });
       }
 
@@ -52,7 +51,7 @@ export default async function handler(req, res) {
         const updated = existing.map(e =>
           e.id === id ? { ...e, ...fields } : e
         );
-        await redis.set(HISTORY_KEY, updated, { ex: TTL });
+        await redis.set(HISTORY_KEY, updated);
         return res.status(200).json({ ok: true });
       }
 
