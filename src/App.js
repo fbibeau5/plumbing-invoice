@@ -500,30 +500,43 @@ export default function App() {
       <meta charset="utf-8"/>
       <title>Facture ${invoiceNum}</title>
       <style>
-        body{font-family:Arial,sans-serif;padding:24px;color:#1a1a1a;font-size:14px}
-        h1{font-size:1.4em;margin:0 0 4px}p{margin:2px 0;color:#555}
-        .header{margin-bottom:20px;border-bottom:2px solid #0c2240;padding-bottom:14px;display:flex;align-items:center;gap:20px}
-        .header-info{flex:1}
-        .header img{height:72px;width:auto;display:block}
-        table{width:100%;border-collapse:collapse;margin-top:16px}
-        th{background:#f3f4f6;padding:8px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
-        td{padding:8px;border-bottom:1px solid #e5e7eb}
-        tr:last-child td{border:none}
-        .totals{margin-top:12px;text-align:right}
-        .totals div{padding:3px 0;font-size:13px;color:#555}
-        .grand-total{background:#0c2240;color:white;padding:10px 14px;border-radius:6px;font-size:1.1em;font-weight:700;margin-top:8px;display:inline-block}
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Arial,sans-serif;padding:32px 36px;color:#1a1a1a;font-size:13px}
+        .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:18px;border-bottom:3px solid #0c2240}
+        .top-logo img{height:80px;width:auto;display:block}
+        .top-info{text-align:right}
+        .top-info .facture-num{font-size:22px;font-weight:700;color:#0c2240;margin-bottom:4px}
+        .top-info .date{font-size:12px;color:#888;margin-bottom:10px}
+        .client-block{font-size:13px;color:#333;line-height:1.6}
+        .client-block strong{color:#0c2240}
+        .section-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#0c2240;margin:20px 0 8px}
+        table{width:100%;border-collapse:collapse}
+        th{background:#0c2240;color:white;padding:9px 8px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+        th:last-child,th:nth-child(4){text-align:right}
+        th:nth-child(3){text-align:center}
+        td{padding:8px;border-bottom:1px solid #e5e7eb;font-size:13px}
+        tr:last-child td{border-bottom:none}
+        tr:nth-child(even){background:#f9fafb}
+        .totals{margin-top:16px;display:flex;justify-content:flex-end}
+        .totals-box{min-width:240px}
+        .totals-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#555;border-bottom:1px solid #e5e7eb}
+        .totals-row:last-child{border-bottom:none}
+        .grand-total{background:#0c2240;color:white;padding:12px 16px;border-radius:6px;display:flex;justify-content:space-between;font-size:15px;font-weight:700;margin-top:10px}
       </style>
     </head><body>
-      <div class="header">
-        <img src="${logoUrl}" alt="Révolution Plomberie"/>
-        <div class="header-info">
-          <p><strong>Facture #${invoiceNum}</strong></p>
-          ${clientName ? `<p>Client: ${clientName}</p>` : ''}
-          ${jobAddress ? `<p>Adresse: ${jobAddress}</p>` : ''}
-          ${jobDesc ? `<p>Travaux: ${jobDesc}</p>` : ''}
-          <p style="color:#999;font-size:12px">${new Date().toLocaleDateString('fr-CA')}</p>
+      <div class="top">
+        <div class="top-logo"><img src="${logoUrl}" alt="Révolution Plomberie"/></div>
+        <div class="top-info">
+          <div class="facture-num">Facture #${invoiceNum}</div>
+          <div class="date">${new Date().toLocaleDateString('fr-CA', { year:'numeric', month:'long', day:'numeric' })}</div>
+          <div class="client-block">
+            ${clientName ? `<div><strong>Client :</strong> ${clientName}</div>` : ''}
+            ${jobAddress ? `<div><strong>Adresse :</strong> ${jobAddress}</div>` : ''}
+            ${jobDesc ? `<div><strong>Travaux :</strong> ${jobDesc}</div>` : ''}
+          </div>
         </div>
       </div>
+      <div class="section-title">Ventilation des matériaux</div>
       <table>
         <thead><tr>
           <th>Article</th><th>Dim.</th>
@@ -534,10 +547,12 @@ export default function App() {
         <tbody>${rows}</tbody>
       </table>
       <div class="totals">
-        <div>Sous-total: <strong>${fmt(sub)}</strong></div>
-        <div>TPS (5%): <strong>${fmt(tpsAmt)}</strong></div>
-        <div>TVQ (9.975%): <strong>${fmt(tvqAmt)}</strong></div>
-        <div class="grand-total">TOTAL: ${fmt(tot)}</div>
+        <div class="totals-box">
+          <div class="totals-row"><span>Sous-total</span><span>${fmt(sub)}</span></div>
+          <div class="totals-row"><span>TPS (5 %)</span><span>${fmt(tpsAmt)}</span></div>
+          <div class="totals-row"><span>TVQ (9,975 %)</span><span>${fmt(tvqAmt)}</span></div>
+          <div class="grand-total"><span>TOTAL</span><span>${fmt(tot)}</span></div>
+        </div>
       </div>
     </body></html>`;
 
@@ -629,9 +644,18 @@ export default function App() {
           return;
         }
         setListHistory(prev => {
+          const serverIds = new Set(serverHistory.map(e => e.id));
+          // Entrées locales absentes du serveur → on les pousse au serveur
+          prev.filter(e => e && e.id && !serverIds.has(e.id)).forEach(entry => {
+            fetch('/api/history-data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'add', entry }),
+            }).catch(() => {});
+          });
           const map = new Map();
           [...prev, ...serverHistory].forEach(e => { if (e && e.id) map.set(e.id, e); });
-          const merged = [...map.values()].sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt)).slice(0, 50);
+          const merged = [...map.values()].sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
           localStorage.setItem('listHistory', JSON.stringify(merged));
           return merged;
         });
@@ -668,8 +692,7 @@ export default function App() {
       <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.22, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
       <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '55vw', maxWidth: 520, opacity: 0.18, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
       <div style={{ position: 'relative', zIndex: 1, background: '#1e2a4a', border: '1px solid #2d3d6a', borderRadius: 16, padding: '40px 32px', width: '100%', maxWidth: 360, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-        <div style={{ width: 60, height: 60, background: '#1a6bb5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, margin: '0 auto 20px' }}>🔧</div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: 'white', marginBottom: 4 }}>Révolution<span style={{ color: '#4a90d9' }}> Facturation</span></div>
+        <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ width: 140, margin: '0 auto 24px', display: 'block', filter: 'brightness(0) invert(1)' }} />
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 2, marginBottom: 32 }}>ACCÈS SÉCURISÉ</div>
         <input
           type="password"
@@ -704,22 +727,7 @@ export default function App() {
         <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 90, right: 12, width: 130, height: 130, borderRadius: '50%', objectFit: 'cover', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }} />
         {/* Mobile Header */}
         <div style={{ background: C.header, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 22 }}>🔧</span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>Révolution<span style={{ color: C.accent }}> Facturation</span></span>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setShowThemes(p => !p)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 16 }}>🎨</button>
-            <button onClick={() => setMobileView('desktop')} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>🖥️</button>
-            <button onClick={() => { localStorage.removeItem('plomb_auth'); setAuthed(false); }} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 12 }}>🔒</button>
-          </div>
-          {showThemes && (
-            <div style={{ position: 'absolute', right: 12, top: 56, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, zIndex: 100, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
-              {Object.entries(THEMES).map(([key, t]) => (
-                <button key={key} onClick={() => { setThemeName(key); setShowThemes(false); }} style={{ display: 'block', width: '100%', padding: '10px 12px', background: themeName === key ? C.accent : 'transparent', border: 'none', borderRadius: 6, color: themeName === key ? 'white' : C.text, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', textAlign: 'left', fontWeight: themeName === key ? 700 : 400 }}>{t.name}</button>
-              ))}
-            </div>
-          )}
+          <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ height: 36, filter: 'brightness(0) invert(1)', display: 'block' }} />
         </div>
 
         {/* Mobile Content */}
@@ -1152,13 +1160,7 @@ export default function App() {
       {/* Header */}
       <div style={{ background: C.header, padding: "0 24px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 36, height: 36, background: C.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🔧</div>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "white", letterSpacing: 0.5 }}>Révolution<span style={{ color: C.accent }}> Facturation</span></div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", letterSpacing: 2 }}>SYSTÈME DE FACTURATION</div>
-            </div>
-          </div>
+          <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ height: 44, filter: 'brightness(0) invert(1)', display: 'block' }} />
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"]].map(([id, label]) => (
               <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); if (id === 'catalog') syncCatalog(); }} style={{
@@ -1168,34 +1170,6 @@ export default function App() {
                 cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: tab === id ? 600 : 400
               }}>{label}</button>
             ))}
-            {isMobile && (
-              <button onClick={() => setMobileView('mobile')} style={{ padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, color: "white", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>📱</button>
-            )}
-            <button onClick={() => { localStorage.removeItem('plomb_auth'); setAuthed(false); }} style={{ padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, color: "white", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>🔒</button>
-            <div style={{ position: "relative", marginLeft: 8 }}>
-              <button onClick={() => setShowThemes(p => !p)} style={{
-                padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
-                borderRadius: 6, color: "white", cursor: "pointer", fontSize: 16, fontFamily: "inherit"
-              }}>🎨</button>
-              {showThemes && (
-                <div style={{
-                  position: "absolute", right: 0, top: 44, background: C.card, border: `1px solid ${C.border}`,
-                  borderRadius: 8, padding: 8, zIndex: 100, minWidth: 140,
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.15)"
-                }}>
-                  {Object.entries(THEMES).map(([key, t]) => (
-                    <button key={key} onClick={() => { setThemeName(key); setShowThemes(false); }} style={{
-                      display: "block", width: "100%", padding: "8px 12px",
-                      background: themeName === key ? C.accent : "transparent",
-                      border: "none", borderRadius: 5,
-                      color: themeName === key ? "white" : C.text,
-                      cursor: "pointer", fontSize: 13, fontFamily: "inherit",
-                      textAlign: "left", fontWeight: themeName === key ? 600 : 400
-                    }}>{t.name}</button>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>
