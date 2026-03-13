@@ -13,6 +13,17 @@ const CAT_COLORS = {
 
 const DEFAULT_MARGINS = { 'ROUGH ABS': 0.30, 'ROUGH PEX': 0.30, 'FOND DE TERRE': 0.20, 'FINITION': 0.15 };
 const fmt = (n) => `$${n.toFixed(2)}`;
+
+// ── CALENDRIER ─────────────────────────────────────────────────────────────
+const CAL_DAYS   = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+const CAL_MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const EV_COLORS  = { scheduled:'#1a6bb5', completed:'#16a34a', cancelled:'#c0392b', pending:'#d97706' };
+const EV_LABELS  = { scheduled:'Planifié', completed:'Complété', cancelled:'Annulé', pending:'En attente' };
+const EMPTY_EV_FORM = { title:'', clientName:'', clientPhone:'', clientEmail:'', address:'', date:'', time:'09:00', duration:'2', notes:'', status:'scheduled', needsSignature:false };
+const EMPTY_SIG_STATE = { eventId: null, sigData: null };
+const dateStr = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+const daysInMonth = (y,m) => new Date(y,m+1,0).getDate();
+const firstWeekday = (y,m) => { const d=new Date(y,m,1).getDay(); return d===0?6:d-1; }; // Lun=0
 const pct = (n) => `${Math.round(n * 100)}%`;
 
 async function parseNotesWithAI(text) {
@@ -167,6 +178,18 @@ export default function App() {
   const [jobAddress, setJobAddress] = useState('');
   const [margeBonus, setMargeBonus] = useState(0); // 0 | 0.05 | 0.10 | 0.15 | 0.20
   const [invoiceSaved, setInvoiceSaved] = useState(false); // feedback bouton sauvegarder
+
+  // ── HORAIRE STATE ──────────────────────────────────────────────────────────
+  const [listSchedule, setListSchedule] = useState(() => { try { return JSON.parse(localStorage.getItem('listSchedule') || '[]'); } catch(e) { return []; } });
+  const [scheduleSync, setScheduleSync] = useState(null);
+  const [calYear,  setCalYear]  = useState(new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [selectedDay, setSelectedDay] = useState(null); // 'YYYY-MM-DD'
+  const [showEvForm, setShowEvForm] = useState(false);
+  const [editingEvId, setEditingEvId] = useState(null);
+  const [evForm, setEvForm] = useState(EMPTY_EV_FORM);
+  const [sigState, setSigState] = useState(EMPTY_SIG_STATE); // pad de signature
+  const [sigCanvasRef] = useState({ current: null });
 
   const subtotalBase = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const bonusAmount = subtotalBase * margeBonus;
@@ -591,8 +614,9 @@ export default function App() {
   }, []);
 
   // Refs pour les timers de retry (évite les fuites mémoire)
-  const catalogRetryRef = useRef(null);
-  const historyRetryRef = useRef(null);
+  const catalogRetryRef  = useRef(null);
+  const historyRetryRef  = useRef(null);
+  const scheduleRetryRef = useRef(null);
 
   // Sync catalogue — serveur = source de vérité (multi-utilisateurs)
   const syncCatalog = useCallback(() => {
@@ -675,6 +699,114 @@ export default function App() {
     return () => { clearInterval(interval); if (historyRetryRef.current) clearTimeout(historyRetryRef.current); };
   }, [syncHistory]);
 
+  // ── SYNC HORAIRE ───────────────────────────────────────────────────────────
+  const syncSchedule = useCallback(() => {
+    if (scheduleRetryRef.current) { clearTimeout(scheduleRetryRef.current); scheduleRetryRef.current = null; }
+    setScheduleSync('sync');
+    fetch('/api/schedule-data')
+      .then(r => r.ok ? r.json() : null)
+      .then(serverData => {
+        if (!Array.isArray(serverData)) {
+          setScheduleSync('offline');
+          scheduleRetryRef.current = setTimeout(() => syncSchedule(), 30000);
+          return;
+        }
+        setListSchedule(prev => {
+          const serverIds = new Set(serverData.map(e => e.id));
+          prev.filter(e => e && e.id && !serverIds.has(e.id)).forEach(ev => {
+            fetch('/api/schedule-data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'add', event:ev }) }).catch(()=>{});
+          });
+          const map = new Map();
+          [...prev, ...serverData].forEach(e => { if (e && e.id) map.set(e.id, e); });
+          const merged = [...map.values()].sort((a,b) => new Date(a.date+'T'+(a.time||'00:00')) - new Date(b.date+'T'+(b.time||'00:00')));
+          localStorage.setItem('listSchedule', JSON.stringify(merged));
+          return merged;
+        });
+        setScheduleSync('ok');
+        setTimeout(() => setScheduleSync(null), 2500);
+      })
+      .catch(() => { setScheduleSync('offline'); scheduleRetryRef.current = setTimeout(() => syncSchedule(), 30000); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => { syncSchedule(); }, [syncSchedule]);
+  useEffect(() => {
+    const interval = setInterval(() => syncSchedule(), 60000);
+    return () => { clearInterval(interval); if (scheduleRetryRef.current) clearTimeout(scheduleRetryRef.current); };
+  }, [syncSchedule]);
+
+  const sortEvs = arr => [...arr].sort((a,b) => new Date(a.date+'T'+(a.time||'00:00')) - new Date(b.date+'T'+(b.time||'00:00')));
+
+  const addScheduleEvent = (formData) => {
+    const ev = { id: Date.now().toString(36)+Math.random().toString(36).slice(2), createdAt: new Date().toISOString(), ...formData };
+    const updated = sortEvs([...listSchedule, ev]);
+    setListSchedule(updated);
+    localStorage.setItem('listSchedule', JSON.stringify(updated));
+    fetch('/api/schedule-data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'add', event:ev }) }).catch(()=>{});
+    return ev;
+  };
+
+  const updateScheduleEvent = (id, fields) => {
+    const updated = sortEvs(listSchedule.map(e => e.id === id ? { ...e, ...fields } : e));
+    setListSchedule(updated);
+    localStorage.setItem('listSchedule', JSON.stringify(updated));
+    fetch('/api/schedule-data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'update', id, fields }) }).catch(()=>{});
+  };
+
+  const deleteScheduleEvent = (id) => {
+    const updated = listSchedule.filter(e => e.id !== id);
+    setListSchedule(updated);
+    localStorage.setItem('listSchedule', JSON.stringify(updated));
+    fetch('/api/schedule-data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'delete', id }) }).catch(()=>{});
+  };
+
+  const openNewEvent = (dayStr) => {
+    setEditingEvId(null);
+    setEvForm({ ...EMPTY_EV_FORM, date: dayStr || '' });
+    setShowEvForm(true);
+  };
+
+  const openEditEvent = (ev) => {
+    setEditingEvId(ev.id);
+    setEvForm({ title:ev.title||'', clientName:ev.clientName||'', clientPhone:ev.clientPhone||'', clientEmail:ev.clientEmail||'', address:ev.address||'', date:ev.date||'', time:ev.time||'09:00', duration:ev.duration||'2', notes:ev.notes||'', status:ev.status||'scheduled', needsSignature:ev.needsSignature||false });
+    setShowEvForm(true);
+  };
+
+  const saveEventForm = () => {
+    if (!evForm.title.trim() || !evForm.date || !evForm.time) return;
+    if (editingEvId) { updateScheduleEvent(editingEvId, evForm); }
+    else { addScheduleEvent(evForm); }
+    setShowEvForm(false);
+    setEvForm(EMPTY_EV_FORM);
+    setEditingEvId(null);
+  };
+
+  // Pad de signature — dessin sur canvas
+  const startSig = (ev, canvasEl) => {
+    if (!canvasEl) return;
+    const rect = canvasEl.getBoundingClientRect();
+    const ctx = canvasEl.getContext('2d');
+    ctx.strokeStyle = '#0c2240'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    const getXY = e => {
+      const src = e.touches ? e.touches[0] : e;
+      return [src.clientX - rect.left, src.clientY - rect.top];
+    };
+    const [sx, sy] = getXY(ev);
+    ctx.beginPath(); ctx.moveTo(sx, sy);
+    const draw = e => { e.preventDefault(); const [x,y]=getXY(e); ctx.lineTo(x,y); ctx.stroke(); };
+    const stop = () => { canvasEl.removeEventListener('mousemove',draw); canvasEl.removeEventListener('mouseup',stop); canvasEl.removeEventListener('touchmove',draw); canvasEl.removeEventListener('touchend',stop); };
+    canvasEl.addEventListener('mousemove',draw); canvasEl.addEventListener('mouseup',stop);
+    canvasEl.addEventListener('touchmove',draw,{passive:false}); canvasEl.addEventListener('touchend',stop);
+  };
+
+  const saveSig = (canvasEl, eventId) => {
+    if (!canvasEl) return;
+    const dataUrl = canvasEl.toDataURL('image/png');
+    const signedAt = new Date().toISOString();
+    updateScheduleEvent(eventId, { signature: dataUrl, signedAt, status:'completed' });
+    setSigState(EMPTY_SIG_STATE);
+  };
+
   const handleLogin = () => {
     if (pwInput === PASSWORD) {
       localStorage.setItem('plomb_auth', JSON.stringify({ ts: Date.now() }));
@@ -714,11 +846,12 @@ export default function App() {
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile && mobileView === 'mobile') {
     const mTabs = [
-      { id: 'parse', icon: '📋', label: 'Notes' },
-      { id: 'invoice', icon: '📦', label: `Liste (${invoiceItems.length})` },
-      { id: 'catalog', icon: '🗂️', label: 'Catalogue' },
-      { id: 'history', icon: '🕐', label: 'Historique' },
-      { id: 'margins', icon: '📊', label: 'Marges' },
+      { id: 'parse',    icon: '📋', label: 'Notes' },
+      { id: 'invoice',  icon: '📦', label: `Liste (${invoiceItems.length})` },
+      { id: 'schedule', icon: '📅', label: 'Horaire' },
+      { id: 'catalog',  icon: '🗂️', label: 'Catalogue' },
+      { id: 'history',  icon: '🕐', label: 'Historique' },
+      { id: 'margins',  icon: '📊', label: 'Marges' },
     ];
     return (
       <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui,-apple-system,sans-serif', color: C.text, paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
@@ -1036,6 +1169,93 @@ export default function App() {
             </div>
           )}
 
+          {/* SCHEDULE TAB - mobile */}
+          {tab === 'schedule' && (() => {
+            const totalDays = daysInMonth(calYear, calMonth);
+            const offset    = firstWeekday(calYear, calMonth);
+            const today     = new Date().toISOString().slice(0,10);
+            const evsByDay  = {};
+            listSchedule.forEach(e => { if (!evsByDay[e.date]) evsByDay[e.date]=[]; evsByDay[e.date].push(e); });
+            const dayEvs    = selectedDay ? (evsByDay[selectedDay]||[]) : [];
+            const upcoming  = listSchedule.filter(e => e.date >= today && e.status !== 'cancelled').slice(0,5);
+            return (
+              <div>
+                {/* En-tête mois */}
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                  <button onClick={() => { let m=calMonth-1,y=calYear; if(m<0){m=11;y--;} setCalMonth(m);setCalYear(y);setSelectedDay(null); }} style={{ padding:'6px 12px', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontSize:18, cursor:'pointer' }}>‹</button>
+                  <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{CAL_MONTHS[calMonth]} {calYear}</div>
+                  <button onClick={() => { let m=calMonth+1,y=calYear; if(m>11){m=0;y++;} setCalMonth(m);setCalYear(y);setSelectedDay(null); }} style={{ padding:'6px 12px', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontSize:18, cursor:'pointer' }}>›</button>
+                </div>
+                {/* Grille calendrier */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:2, marginBottom:14 }}>
+                  {CAL_DAYS.map(d => <div key={d} style={{ textAlign:'center', fontSize:11, fontWeight:700, color:C.textMuted, padding:'4px 0' }}>{d}</div>)}
+                  {Array(offset).fill(null).map((_,i) => <div key={'e'+i}/>)}
+                  {Array(totalDays).fill(null).map((_,i) => {
+                    const day=i+1; const ds=dateStr(calYear,calMonth,day);
+                    const evs=evsByDay[ds]||[]; const isToday=ds===today; const isSel=ds===selectedDay;
+                    return (
+                      <div key={ds} onClick={() => setSelectedDay(isSel?null:ds)} style={{ position:'relative', minHeight:38, background: isSel ? C.accent : isToday ? C.inputBg : 'transparent', border:`1px solid ${isSel ? C.accent : C.rowBorder}`, borderRadius:6, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', padding:'4px 2px', transition:'background .15s' }}>
+                        <span style={{ fontSize:12, fontWeight: isToday?700:400, color: isSel?'white': isToday?C.accent:C.text }}>{day}</span>
+                        <div style={{ display:'flex', gap:2, flexWrap:'wrap', justifyContent:'center' }}>
+                          {evs.slice(0,3).map(e => <div key={e.id} style={{ width:5, height:5, borderRadius:'50%', background: isSel?'white':EV_COLORS[e.status]||C.accent }}/>)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Bouton ajouter */}
+                <button onClick={() => openNewEvent(selectedDay||today)} style={{ width:'100%', padding:12, background:C.accent, border:'none', borderRadius:10, color:'white', fontWeight:700, fontSize:14, cursor:'pointer', marginBottom:12, fontFamily:'inherit' }}>
+                  + Ajouter un rendez-vous{selectedDay ? ` — ${selectedDay}` : ''}
+                </button>
+                {/* Sync status */}
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                  <div style={{ fontSize:11, color:C.textMuted }}>
+                    {scheduleSync==='sync'&&'⟳ Sync…'}{scheduleSync==='ok'&&<span style={{color:'#16a34a'}}>✓ Synchronisé</span>}{scheduleSync==='offline'&&<span style={{color:'#c0392b'}}>📵 Hors-ligne</span>}
+                  </div>
+                  <button onClick={syncSchedule} style={{ padding:'4px 8px', background:C.card, border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, cursor:'pointer', fontSize:11, fontFamily:'inherit' }}>🔄</button>
+                </div>
+                {/* Événements du jour sélectionné ou prochains */}
+                {selectedDay ? (
+                  dayEvs.length === 0 ? (
+                    <div style={{ textAlign:'center', color:C.textMuted, fontSize:14, padding:'20px 0' }}>Aucun rendez-vous ce jour</div>
+                  ) : dayEvs.map(ev => (
+                    <div key={ev.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:12, marginBottom:10 }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontWeight:700, fontSize:14, color:C.text, marginBottom:2 }}>{ev.title}</div>
+                          {ev.clientName && <div style={{ fontSize:12, color:C.textMuted }}>👤 {ev.clientName}</div>}
+                          {ev.clientPhone && <div style={{ fontSize:12, color:C.textMuted }}>📞 {ev.clientPhone}</div>}
+                          {ev.address && <div style={{ fontSize:12, color:C.textMuted }}>📍 {ev.address}</div>}
+                          <div style={{ fontSize:12, color:C.textMuted }}>🕐 {ev.time}{ev.duration ? ` (${ev.duration}h)` : ''}</div>
+                          {ev.notes && <div style={{ fontSize:12, color:C.textMuted, marginTop:4, fontStyle:'italic' }}>{ev.notes}</div>}
+                        </div>
+                        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
+                          <span style={{ fontSize:11, fontWeight:700, color:'white', background:EV_COLORS[ev.status]||C.accent, borderRadius:4, padding:'2px 7px' }}>{EV_LABELS[ev.status]||ev.status}</span>
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', gap:6, marginTop:10 }}>
+                        <button onClick={() => openEditEvent(ev)} style={{ flex:1, padding:'8px 0', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>✏️ Modifier</button>
+                        {ev.needsSignature && !ev.signature && <button onClick={() => setSigState({ eventId:ev.id })} style={{ flex:1, padding:'8px 0', background:'#d97706', border:'none', borderRadius:8, color:'white', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>✍️ Signature</button>}
+                        {ev.signature && <button onClick={() => setSigState({ eventId:ev.id, viewOnly:true, sigData:ev.signature })} style={{ flex:1, padding:'8px 0', background:'#16a34a', border:'none', borderRadius:8, color:'white', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>✅ Signé</button>}
+                        <button onClick={() => { if(window.confirm('Supprimer ce rendez-vous?')) deleteScheduleEvent(ev.id); }} style={{ padding:'8px 12px', background:'transparent', border:`1px solid #c0392b`, borderRadius:8, color:'#c0392b', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>🗑️</button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div>
+                    <div style={{ fontSize:12, fontWeight:700, color:C.textMuted, textTransform:'uppercase', letterSpacing:1, marginBottom:8 }}>Prochains rendez-vous</div>
+                    {upcoming.length===0 ? <div style={{ textAlign:'center', color:C.textMuted, fontSize:14, padding:'20px 0' }}>Aucun rendez-vous à venir</div> : upcoming.map(ev => (
+                      <div key={ev.id} onClick={() => { setCalYear(parseInt(ev.date.slice(0,4))); setCalMonth(parseInt(ev.date.slice(5,7))-1); setSelectedDay(ev.date); }} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:'10px 12px', marginBottom:8, cursor:'pointer', borderLeft:`4px solid ${EV_COLORS[ev.status]||C.accent}` }}>
+                        <div style={{ fontWeight:700, fontSize:13, color:C.text }}>{ev.title}</div>
+                        <div style={{ fontSize:12, color:C.textMuted }}>{ev.date} à {ev.time}{ev.clientName ? ` — ${ev.clientName}` : ''}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* HISTORY TAB - mobile */}
           {tab === 'history' && (
             <div>
@@ -1150,10 +1370,14 @@ export default function App() {
           })()}
         </div>
 
+        {/* MODALS HORAIRE - mobile */}
+        {showEvForm && <EventFormModal C={C} evForm={evForm} setEvForm={setEvForm} editingEvId={editingEvId} saveEventForm={saveEventForm} onClose={()=>{setShowEvForm(false);setEditingEvId(null);setEvForm(EMPTY_EV_FORM);}} />}
+        {sigState.eventId && <SigPadModal C={C} sigState={sigState} event={listSchedule.find(e=>e.id===sigState.eventId)} onClose={()=>setSigState(EMPTY_SIG_STATE)} onSave={(canvasEl)=>saveSig(canvasEl,sigState.eventId)} sigCanvasRef={sigCanvasRef} startSig={startSig} />}
+
         {/* Bottom Nav */}
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.header, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {mTabs.map(({ id, icon, label }) => (
-            <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); if (id === 'catalog') syncCatalog(); }} style={{ flex: 1, padding: '10px 4px 12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
+            <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); if (id === 'catalog') syncCatalog(); if (id === 'schedule') syncSchedule(); }} style={{ flex: 1, padding: '10px 4px 12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
               <span style={{ fontSize: 22 }}>{icon}</span>
               <span style={{ fontSize: 10, color: tab === id ? C.accent : 'rgba(255,255,255,0.5)', fontWeight: tab === id ? 700 : 400 }}>{label}</span>
             </button>
@@ -1174,8 +1398,8 @@ export default function App() {
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
           <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ height: 44, filter: 'brightness(0) invert(1)', display: 'block' }} />
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"]].map(([id, label]) => (
-              <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); if (id === 'catalog') syncCatalog(); }} style={{
+            {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["schedule", `📅 Horaire (${listSchedule.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"]].map(([id, label]) => (
+              <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); if (id === 'catalog') syncCatalog(); if (id === 'schedule') syncSchedule(); }} style={{
                 padding: "8px 18px", background: tab === id ? C.accent : "rgba(255,255,255,0.1)",
                 border: `1px solid ${tab === id ? C.accent : "rgba(255,255,255,0.2)"}`,
                 borderRadius: 6, color: "white",
@@ -1452,6 +1676,99 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* SCHEDULE TAB - desktop */}
+        {tab === "schedule" && (() => {
+          const totalDays = daysInMonth(calYear, calMonth);
+          const offset    = firstWeekday(calYear, calMonth);
+          const today     = new Date().toISOString().slice(0,10);
+          const evsByDay  = {};
+          listSchedule.forEach(e => { if (!evsByDay[e.date]) evsByDay[e.date]=[]; evsByDay[e.date].push(e); });
+          const dayEvs    = selectedDay ? (evsByDay[selectedDay]||[]) : [];
+          return (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 360px', gap:24 }}>
+              {/* Colonne gauche : calendrier */}
+              <div>
+                {/* Header mois */}
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                  <button onClick={() => { let m=calMonth-1,y=calYear; if(m<0){m=11;y--;} setCalMonth(m);setCalYear(y);setSelectedDay(null); }} style={{ padding:'8px 16px', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontSize:20, cursor:'pointer' }}>‹</button>
+                  <div style={{ fontSize:20, fontWeight:700, color:C.text }}>{CAL_MONTHS[calMonth]} {calYear}</div>
+                  <button onClick={() => { let m=calMonth+1,y=calYear; if(m>11){m=0;y++;} setCalMonth(m);setCalYear(y);setSelectedDay(null); }} style={{ padding:'8px 16px', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontSize:20, cursor:'pointer' }}>›</button>
+                </div>
+                {/* Grille */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4 }}>
+                  {CAL_DAYS.map(d => <div key={d} style={{ textAlign:'center', fontSize:12, fontWeight:700, color:C.textMuted, padding:'6px 0' }}>{d}</div>)}
+                  {Array(offset).fill(null).map((_,i) => <div key={'e'+i}/>)}
+                  {Array(totalDays).fill(null).map((_,i) => {
+                    const day=i+1; const ds=dateStr(calYear,calMonth,day);
+                    const evs=evsByDay[ds]||[]; const isToday=ds===today; const isSel=ds===selectedDay;
+                    return (
+                      <div key={ds} onClick={() => setSelectedDay(isSel?null:ds)} style={{ minHeight:72, background: isSel?C.accent: isToday?C.inputBg:'transparent', border:`1px solid ${isSel?C.accent:C.rowBorder}`, borderRadius:8, cursor:'pointer', padding:'6px', display:'flex', flexDirection:'column', gap:3, transition:'background .15s' }}>
+                        <span style={{ fontSize:13, fontWeight:isToday?700:400, color:isSel?'white':isToday?C.accent:C.text }}>{day}</span>
+                        {evs.slice(0,3).map(e => (
+                          <div key={e.id} style={{ fontSize:11, fontWeight:600, color:'white', background:EV_COLORS[e.status]||C.accent, borderRadius:3, padding:'1px 5px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            {e.time} {e.title}
+                          </div>
+                        ))}
+                        {evs.length>3 && <div style={{ fontSize:10, color:isSel?'rgba(255,255,255,.7)':C.textMuted }}>+{evs.length-3} autres</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Colonne droite : détails + formulaire */}
+              <div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                  <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{selectedDay ? selectedDay : 'Sélectionnez un jour'}</div>
+                  <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                    {scheduleSync==='sync'&&<span style={{fontSize:11,color:C.textMuted}}>⟳</span>}
+                    {scheduleSync==='ok'&&<span style={{fontSize:11,color:'#16a34a'}}>✓</span>}
+                    {scheduleSync==='offline'&&<span style={{fontSize:11,color:'#c0392b'}}>📵</span>}
+                    <button onClick={syncSchedule} style={{ padding:'4px 8px', background:C.card, border:`1px solid ${C.border}`, borderRadius:6, color:C.textMuted, cursor:'pointer', fontSize:11 }}>🔄</button>
+                  </div>
+                </div>
+                <button onClick={() => openNewEvent(selectedDay||today)} style={{ width:'100%', padding:'10px 0', background:C.accent, border:'none', borderRadius:8, color:'white', fontWeight:700, fontSize:13, cursor:'pointer', marginBottom:14, fontFamily:'inherit' }}>
+                  + Nouveau rendez-vous{selectedDay ? ` — ${selectedDay}` : ''}
+                </button>
+                {selectedDay ? (
+                  dayEvs.length===0 ? (
+                    <div style={{ textAlign:'center', color:C.textMuted, fontSize:13, padding:'24px 0' }}>Aucun rendez-vous ce jour</div>
+                  ) : dayEvs.map(ev => (
+                    <div key={ev.id} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:14, marginBottom:10, borderLeft:`4px solid ${EV_COLORS[ev.status]||C.accent}` }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                        <div style={{ fontWeight:700, fontSize:14, color:C.text }}>{ev.title}</div>
+                        <span style={{ fontSize:11, fontWeight:700, color:'white', background:EV_COLORS[ev.status]||C.accent, borderRadius:4, padding:'2px 8px' }}>{EV_LABELS[ev.status]||ev.status}</span>
+                      </div>
+                      {ev.clientName && <div style={{ fontSize:12, color:C.textMuted }}>👤 {ev.clientName}</div>}
+                      {ev.clientPhone && <div style={{ fontSize:12, color:C.textMuted }}>📞 {ev.clientPhone}</div>}
+                      {ev.clientEmail && <div style={{ fontSize:12, color:C.textMuted }}>✉️ {ev.clientEmail}</div>}
+                      {ev.address && <div style={{ fontSize:12, color:C.textMuted }}>📍 {ev.address}</div>}
+                      <div style={{ fontSize:12, color:C.textMuted }}>🕐 {ev.time}{ev.duration ? ` (${ev.duration}h)` : ''}</div>
+                      {ev.notes && <div style={{ fontSize:12, color:C.textMuted, marginTop:4, fontStyle:'italic' }}>{ev.notes}</div>}
+                      {ev.signature && <div style={{ fontSize:11, color:'#16a34a', marginTop:4 }}>✅ Entente signée le {ev.signedAt ? new Date(ev.signedAt).toLocaleDateString('fr-CA') : ''}</div>}
+                      <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                        <button onClick={() => openEditEvent(ev)} style={{ flex:1, padding:'7px 0', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:6, color:C.text, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>✏️ Modifier</button>
+                        {ev.needsSignature && !ev.signature && <button onClick={() => setSigState({ eventId:ev.id })} style={{ flex:1, padding:'7px 0', background:'#d97706', border:'none', borderRadius:6, color:'white', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>✍️ Signature</button>}
+                        {ev.signature && <button onClick={() => setSigState({ eventId:ev.id, viewOnly:true, sigData:ev.signature })} style={{ flex:1, padding:'7px 0', background:'#16a34a', border:'none', borderRadius:6, color:'white', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>✅ Signé</button>}
+                        <button onClick={() => { if(window.confirm('Supprimer?')) deleteScheduleEvent(ev.id); }} style={{ padding:'7px 10px', background:'transparent', border:`1px solid #c0392b`, borderRadius:6, color:'#c0392b', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>🗑️</button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:700, color:C.textMuted, textTransform:'uppercase', letterSpacing:1, marginBottom:8 }}>Prochains rendez-vous</div>
+                    {listSchedule.filter(e => e.date >= today && e.status !== 'cancelled').slice(0,8).map(ev => (
+                      <div key={ev.id} onClick={() => { setCalYear(parseInt(ev.date.slice(0,4))); setCalMonth(parseInt(ev.date.slice(5,7))-1); setSelectedDay(ev.date); }} style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:'8px 12px', marginBottom:8, cursor:'pointer', borderLeft:`4px solid ${EV_COLORS[ev.status]||C.accent}` }}>
+                        <div style={{ fontWeight:700, fontSize:13, color:C.text }}>{ev.title}</div>
+                        <div style={{ fontSize:12, color:C.textMuted }}>{ev.date} à {ev.time}{ev.clientName ? ` — ${ev.clientName}` : ''}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* HISTORY TAB */}
         {tab === "history" && (
@@ -1806,6 +2123,119 @@ export default function App() {
             </div>
           );
         })()}
+      </div>{/* fin content maxWidth:1200 */}
+      {/* MODALS HORAIRE - desktop */}
+      {showEvForm && <EventFormModal C={C} evForm={evForm} setEvForm={setEvForm} editingEvId={editingEvId} saveEventForm={saveEventForm} onClose={()=>{setShowEvForm(false);setEditingEvId(null);setEvForm(EMPTY_EV_FORM);}} />}
+      {sigState.eventId && <SigPadModal C={C} sigState={sigState} event={listSchedule.find(e=>e.id===sigState.eventId)} onClose={()=>setSigState(EMPTY_SIG_STATE)} onSave={(canvasEl)=>saveSig(canvasEl,sigState.eventId)} sigCanvasRef={sigCanvasRef} startSig={startSig} />}
+    </div>
+  );
+}
+
+// ── MODAL FORMULAIRE ÉVÉNEMENT ─────────────────────────────────────────────
+function EventFormModal({ C, evForm, setEvForm, editingEvId, saveEventForm, onClose }) {
+  const f = (k,v) => setEvForm(p => ({ ...p, [k]: v }));
+  const inp = (label, key, type='text', extra={}) => (
+    <div style={{ marginBottom:12 }}>
+      <label style={{ fontSize:12, fontWeight:700, color:C.textMuted, display:'block', marginBottom:4 }}>{label}</label>
+      <input type={type} value={evForm[key]} onChange={e=>f(key,e.target.value)} {...extra}
+        style={{ width:'100%', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 12px', color:C.text, fontFamily:'inherit', fontSize:14, outline:'none', boxSizing:'border-box' }} />
+    </div>
+  );
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:24, width:'100%', maxWidth:520, maxHeight:'90vh', overflowY:'auto' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+          <div style={{ fontSize:16, fontWeight:700, color:C.text }}>{editingEvId ? '✏️ Modifier le rendez-vous' : '+ Nouveau rendez-vous'}</div>
+          <button onClick={onClose} style={{ background:'transparent', border:'none', color:C.textMuted, fontSize:20, cursor:'pointer' }}>✕</button>
+        </div>
+        {inp('Titre *', 'title')}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          <div style={{ marginBottom:12 }}>
+            <label style={{ fontSize:12, fontWeight:700, color:C.textMuted, display:'block', marginBottom:4 }}>Date *</label>
+            <input type="date" value={evForm.date} onChange={e=>f('date',e.target.value)} style={{ width:'100%', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 12px', color:C.text, fontFamily:'inherit', fontSize:14, outline:'none', boxSizing:'border-box' }} />
+          </div>
+          <div style={{ marginBottom:12 }}>
+            <label style={{ fontSize:12, fontWeight:700, color:C.textMuted, display:'block', marginBottom:4 }}>Heure *</label>
+            <input type="time" value={evForm.time} onChange={e=>f('time',e.target.value)} style={{ width:'100%', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 12px', color:C.text, fontFamily:'inherit', fontSize:14, outline:'none', boxSizing:'border-box' }} />
+          </div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          {inp('Client / Société', 'clientName')}
+          {inp('Téléphone', 'clientPhone', 'tel')}
+        </div>
+        {inp('Courriel client', 'clientEmail', 'email')}
+        {inp('Adresse des travaux', 'address')}
+        <div style={{ marginBottom:12 }}>
+          <label style={{ fontSize:12, fontWeight:700, color:C.textMuted, display:'block', marginBottom:4 }}>Durée estimée</label>
+          <select value={evForm.duration} onChange={e=>f('duration',e.target.value)} style={{ width:'100%', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 12px', color:C.text, fontFamily:'inherit', fontSize:14, outline:'none', boxSizing:'border-box' }}>
+            {['1','1.5','2','3','4','5','6','7','8'].map(h => <option key={h} value={h}>{h} heure{parseFloat(h)>1?'s':''}</option>)}
+          </select>
+        </div>
+        <div style={{ marginBottom:12 }}>
+          <label style={{ fontSize:12, fontWeight:700, color:C.textMuted, display:'block', marginBottom:4 }}>Statut</label>
+          <select value={evForm.status} onChange={e=>f('status',e.target.value)} style={{ width:'100%', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 12px', color:C.text, fontFamily:'inherit', fontSize:14, outline:'none', boxSizing:'border-box' }}>
+            {Object.entries(EV_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+        <div style={{ marginBottom:12 }}>
+          <label style={{ fontSize:12, fontWeight:700, color:C.textMuted, display:'block', marginBottom:4 }}>Notes / Description</label>
+          <textarea value={evForm.notes} onChange={e=>f('notes',e.target.value)} rows={3} style={{ width:'100%', background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 12px', color:C.text, fontFamily:'inherit', fontSize:14, outline:'none', boxSizing:'border-box', resize:'vertical' }} />
+        </div>
+        <label style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20, cursor:'pointer' }}>
+          <input type="checkbox" checked={evForm.needsSignature} onChange={e=>f('needsSignature',e.target.checked)} style={{ width:18, height:18 }} />
+          <span style={{ fontSize:14, color:C.text }}>✍️ Entente de service — signature requise</span>
+        </label>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+          <button onClick={onClose} style={{ padding:12, background:C.inputBg, border:`1px solid ${C.border}`, borderRadius:8, color:C.textMuted, cursor:'pointer', fontFamily:'inherit', fontSize:14 }}>Annuler</button>
+          <button onClick={saveEventForm} disabled={!evForm.title.trim()||!evForm.date||!evForm.time} style={{ padding:12, background:(!evForm.title.trim()||!evForm.date||!evForm.time)?C.inputBg:C.accent, border:'none', borderRadius:8, color:(!evForm.title.trim()||!evForm.date||!evForm.time)?C.textLight:'white', cursor:(!evForm.title.trim()||!evForm.date||!evForm.time)?'not-allowed':'pointer', fontFamily:'inherit', fontSize:14, fontWeight:700 }}>
+            {editingEvId ? '✓ Enregistrer' : '+ Créer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PAD DE SIGNATURE ────────────────────────────────────────────────────────
+function SigPadModal({ C, sigState, event, onClose, onSave, sigCanvasRef, startSig }) {
+  const [canvasEl, setCanvasEl] = useState(null);
+  const setRef = el => { if(el && !canvasEl) { setCanvasEl(el); sigCanvasRef.current = el; } };
+  const clear = () => { if(!canvasEl) return; const ctx=canvasEl.getContext('2d'); ctx.clearRect(0,0,canvasEl.width,canvasEl.height); };
+  const logoUrl = (typeof process !== 'undefined' && process.env && process.env.PUBLIC_URL ? process.env.PUBLIC_URL : '') + '/logo.svg';
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:300, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div style={{ background:'white', borderRadius:16, padding:24, width:'100%', maxWidth:600 }}>
+        {/* En-tête entente */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, paddingBottom:12, borderBottom:'2px solid #0c2240' }}>
+          <img src={logoUrl} alt="Révolution Plomberie" style={{ height:56 }} />
+          <div style={{ textAlign:'right' }}>
+            <div style={{ fontSize:16, fontWeight:700, color:'#0c2240' }}>Entente de service</div>
+            <div style={{ fontSize:12, color:'#888' }}>{new Date().toLocaleDateString('fr-CA',{year:'numeric',month:'long',day:'numeric'})}</div>
+            {event && <div style={{ fontSize:12, color:'#333', marginTop:4 }}>Travaux : {event.title}</div>}
+            {event?.clientName && <div style={{ fontSize:12, color:'#333' }}>Client : {event.clientName}</div>}
+            {event?.address && <div style={{ fontSize:12, color:'#333' }}>Adresse : {event.address}</div>}
+          </div>
+        </div>
+        {sigState.viewOnly ? (
+          <div>
+            <div style={{ fontSize:13, color:'#555', marginBottom:12 }}>Signature enregistrée le {event?.signedAt ? new Date(event.signedAt).toLocaleDateString('fr-CA') : ''} :</div>
+            <img src={sigState.sigData} alt="Signature" style={{ border:'1px solid #ddd', borderRadius:8, maxWidth:'100%' }} />
+            <button onClick={onClose} style={{ width:'100%', marginTop:16, padding:12, background:'#0c2240', border:'none', borderRadius:8, color:'white', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>Fermer</button>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize:13, color:'#333', marginBottom:12 }}>En signant ci-dessous, le client accepte l'entente de service et autorise l'exécution des travaux décrits.</div>
+            <div style={{ fontSize:12, color:'#888', marginBottom:8 }}>Signature du client :</div>
+            <canvas ref={setRef} width={550} height={160}
+              onMouseDown={e=>startSig(e,canvasEl)} onTouchStart={e=>startSig(e,canvasEl)}
+              style={{ border:'2px solid #0c2240', borderRadius:8, width:'100%', height:160, background:'#fafafa', touchAction:'none', display:'block', cursor:'crosshair' }} />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginTop:14 }}>
+              <button onClick={onClose} style={{ padding:11, background:'#f3f4f6', border:'1px solid #ddd', borderRadius:8, color:'#555', cursor:'pointer', fontFamily:'inherit', fontSize:13 }}>Annuler</button>
+              <button onClick={clear} style={{ padding:11, background:'#fee2e2', border:'1px solid #fca5a5', borderRadius:8, color:'#c0392b', cursor:'pointer', fontFamily:'inherit', fontSize:13 }}>🗑️ Effacer</button>
+              <button onClick={()=>onSave(canvasEl)} style={{ padding:11, background:'#0c2240', border:'none', borderRadius:8, color:'white', fontWeight:700, cursor:'pointer', fontFamily:'inherit', fontSize:13 }}>✅ Confirmer</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
