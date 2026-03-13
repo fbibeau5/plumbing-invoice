@@ -192,6 +192,14 @@ export default function App() {
   const [sigCanvasRef] = useState({ current: null });
   const [reminderSending, setReminderSending] = useState({}); // { [eventId]: 'sending'|'ok'|'err' }
 
+  // ── SAGE ACCOUNTING STATE ──────────────────────────────────────────────────
+  const [sageConnected, setSageConnected] = useState(false);
+  const [sageExpired, setSageExpired] = useState(false);
+  const [sageLastSync, setSageLastSync] = useState(null);
+  const [sageSyncing, setSageSyncing] = useState(null); // null | 'push' | 'pull' | 'full'
+  const [sageSyncResult, setSageSyncResult] = useState(null); // résultat dernière sync
+  const [sageNotif, setSageNotif] = useState(null); // message de notification
+
   const subtotalBase = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const bonusAmount = subtotalBase * margeBonus;
   const subtotal = subtotalBase + bonusAmount;
@@ -736,6 +744,61 @@ export default function App() {
     return () => { clearInterval(interval); if (scheduleRetryRef.current) clearTimeout(scheduleRetryRef.current); };
   }, [syncSchedule]);
 
+  // ── SAGE : vérifier statut au chargement + gérer params URL ──────────────
+  useEffect(() => {
+    // Gérer les redirections OAuth Sage
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('sage_connected') === 'true') {
+      setSageNotif({ type: 'ok', msg: '✅ Sage Accounting connecté avec succès !' });
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => setSageNotif(null), 5000);
+    }
+    if (params.get('sage_error')) {
+      setSageNotif({ type: 'err', msg: '❌ Erreur Sage : ' + params.get('sage_error') });
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => setSageNotif(null), 8000);
+    }
+    // Vérifier statut de connexion
+    fetch('/api/sage-status')
+      .then(r => r.json())
+      .then(d => {
+        setSageConnected(!!d.connected);
+        setSageExpired(!!d.expired);
+        setSageLastSync(d.lastSync || null);
+      })
+      .catch(() => {});
+  }, []);
+
+  const runSageSync = async (action) => {
+    setSageSyncing(action);
+    setSageSyncResult(null);
+    try {
+      const res = await fetch('/api/sage-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setSageSyncResult({ ok: true, action, data });
+        setSageLastSync({ at: new Date().toISOString(), direction: action, ...data });
+        if (action === 'pull' || action === 'full') {
+          // Recharger l'historique depuis Redis
+          fetch('/api/history-data')
+            .then(r => r.json())
+            .then(d => { if (Array.isArray(d)) { setListHistory(d); localStorage.setItem('listHistory', JSON.stringify(d)); } })
+            .catch(() => {});
+        }
+      } else {
+        setSageSyncResult({ ok: false, action, error: data.error || 'Erreur inconnue' });
+      }
+    } catch (e) {
+      setSageSyncResult({ ok: false, action, error: e.message });
+    } finally {
+      setSageSyncing(null);
+    }
+  };
+
   const sortEvs = arr => [...arr].sort((a,b) => new Date(a.date+'T'+(a.time||'00:00')) - new Date(b.date+'T'+(b.time||'00:00')));
 
   const addScheduleEvent = (formData) => {
@@ -880,6 +943,7 @@ export default function App() {
       { id: 'catalog',  icon: '🗂️', label: 'Catalogue' },
       { id: 'history',  icon: '🕐', label: 'Historique' },
       { id: 'margins',  icon: '📊', label: 'Marges' },
+      { id: 'sage',     icon: '🟢', label: 'Sage' },
     ];
     return (
       <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui,-apple-system,sans-serif', color: C.text, paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
@@ -1410,6 +1474,76 @@ export default function App() {
               </div>
             );
           })()}
+
+          {/* SAGE TAB - mobile */}
+          {tab === 'sage' && (
+            <div>
+              {/* Notification */}
+              {sageNotif && (
+                <div style={{ background: sageNotif.type === 'ok' ? '#16a34a22' : '#c0392b22', border: `1px solid ${sageNotif.type === 'ok' ? '#16a34a' : '#c0392b'}`, borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: sageNotif.type === 'ok' ? '#16a34a' : '#c0392b', fontWeight: 600 }}>
+                  {sageNotif.msg}
+                </div>
+              )}
+              {/* Statut connexion */}
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: sageConnected ? '#16a34a' : '#c0392b', display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
+                    {sageConnected ? (sageExpired ? '⚠️ Token expiré' : '✅ Connecté à Sage') : '🔴 Non connecté'}
+                  </span>
+                </div>
+                {sageLastSync && (
+                  <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>
+                    Dernière sync : {new Date(sageLastSync.at).toLocaleString('fr-CA')}
+                    {sageLastSync.pushed != null && ` — ${sageLastSync.pushed} factures envoyées`}
+                    {sageLastSync.imported != null && ` — ${sageLastSync.imported} importées`}
+                  </div>
+                )}
+                {!sageConnected || sageExpired ? (
+                  <a href="/api/sage-auth" style={{ display: 'block', marginTop: 10, padding: '12px 0', background: '#1a6bb5', border: 'none', borderRadius: 8, color: 'white', fontSize: 14, fontWeight: 700, textAlign: 'center', textDecoration: 'none', cursor: 'pointer' }}>
+                    🔗 {sageExpired ? 'Reconnecter Sage' : 'Connecter Sage Accounting'}
+                  </a>
+                ) : null}
+              </div>
+              {/* Boutons sync */}
+              {sageConnected && !sageExpired && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <button disabled={!!sageSyncing} onClick={() => runSageSync('push')} style={{ padding: '14px 0', background: sageSyncing === 'push' ? C.inputBg : '#1a6bb5', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontWeight: 700, cursor: sageSyncing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: sageSyncing && sageSyncing !== 'push' ? 0.5 : 1 }}>
+                    {sageSyncing === 'push' ? '⏳ Envoi en cours…' : '📤 Envoyer factures → Sage'}
+                  </button>
+                  <button disabled={!!sageSyncing} onClick={() => runSageSync('pull')} style={{ padding: '14px 0', background: sageSyncing === 'pull' ? C.inputBg : '#16a34a', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontWeight: 700, cursor: sageSyncing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: sageSyncing && sageSyncing !== 'pull' ? 0.5 : 1 }}>
+                    {sageSyncing === 'pull' ? '⏳ Import en cours…' : '📥 Importer Sage → Historique'}
+                  </button>
+                  <button disabled={!!sageSyncing} onClick={() => runSageSync('full')} style={{ padding: '14px 0', background: sageSyncing === 'full' ? C.inputBg : C.accent, border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontWeight: 700, cursor: sageSyncing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: sageSyncing && sageSyncing !== 'full' ? 0.5 : 1 }}>
+                    {sageSyncing === 'full' ? '⏳ Sync complète en cours…' : '🔄 Sync complète (Push + Pull)'}
+                  </button>
+                </div>
+              )}
+              {/* Résultat sync */}
+              {sageSyncResult && (
+                <div style={{ marginTop: 14, background: sageSyncResult.ok ? '#16a34a18' : '#c0392b18', border: `1px solid ${sageSyncResult.ok ? '#16a34a' : '#c0392b'}`, borderRadius: 10, padding: '12px 14px', fontSize: 12, color: sageSyncResult.ok ? '#16a34a' : '#c0392b' }}>
+                  {sageSyncResult.ok ? (
+                    <>
+                      ✅ Sync réussie !
+                      {sageSyncResult.data?.pushed != null && <span> — {sageSyncResult.data.pushed} factures envoyées</span>}
+                      {sageSyncResult.data?.skipped != null && <span> — {sageSyncResult.data.skipped} déjà synchro</span>}
+                      {sageSyncResult.data?.imported != null && <span> — {sageSyncResult.data.imported} importées</span>}
+                      {sageSyncResult.data?.pull?.imported != null && <span> — {sageSyncResult.data.pull.imported} importées</span>}
+                      {sageSyncResult.data?.errors?.length > 0 && <span style={{ color: '#d97706' }}> ⚠️ {sageSyncResult.data.errors.length} erreur(s)</span>}
+                    </>
+                  ) : (
+                    <>❌ Erreur : {sageSyncResult.error}</>
+                  )}
+                </div>
+              )}
+              {/* Info */}
+              <div style={{ marginTop: 16, fontSize: 11, color: C.textMuted, lineHeight: 1.6 }}>
+                <strong>Push :</strong> envoie vos factures de l'app vers Sage (seulement les nouvelles).<br/>
+                <strong>Pull :</strong> importe les factures de Sage dans votre historique.<br/>
+                <strong>Sync complète :</strong> fait les deux en même temps.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* MODALS HORAIRE - mobile */}
@@ -1440,7 +1574,7 @@ export default function App() {
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
           <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ height: 44, filter: 'brightness(0) invert(1)', display: 'block' }} />
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["schedule", `📅 Horaire (${listSchedule.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"]].map(([id, label]) => (
+            {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["schedule", `📅 Horaire (${listSchedule.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"], ["sage", `🟢 Sage${sageConnected ? ' ✓' : ''}`]].map(([id, label]) => (
               <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); if (id === 'catalog') syncCatalog(); if (id === 'schedule') syncSchedule(); }} style={{
                 padding: "8px 18px", background: tab === id ? C.accent : "rgba(255,255,255,0.1)",
                 border: `1px solid ${tab === id ? C.accent : "rgba(255,255,255,0.2)"}`,
@@ -2179,6 +2313,85 @@ export default function App() {
             </div>
           );
         })()}
+
+        {/* SAGE TAB - desktop */}
+        {tab === "sage" && (
+          <div style={{ maxWidth: 640 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: C.accent, marginBottom: 20, textTransform: "uppercase" }}>Sage Business Cloud Accounting — Synchronisation</div>
+
+            {/* Notification */}
+            {sageNotif && (
+              <div style={{ background: sageNotif.type === 'ok' ? '#16a34a22' : '#c0392b22', border: `1px solid ${sageNotif.type === 'ok' ? '#16a34a' : '#c0392b'}`, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: sageNotif.type === 'ok' ? '#16a34a' : '#c0392b', fontWeight: 600 }}>
+                {sageNotif.msg}
+              </div>
+            )}
+
+            {/* Statut */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 24, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <span style={{ width: 14, height: 14, borderRadius: '50%', background: sageConnected ? '#16a34a' : '#c0392b', display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>
+                  {sageConnected ? (sageExpired ? '⚠️ Connexion expirée — reconnexion requise' : '✅ Connecté à Sage Accounting') : '🔴 Non connecté à Sage Accounting'}
+                </span>
+              </div>
+              {sageLastSync && (
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
+                  Dernière synchronisation : <strong>{new Date(sageLastSync.at).toLocaleString('fr-CA')}</strong>
+                  {sageLastSync.pushed != null && <span> · {sageLastSync.pushed} facture(s) envoyée(s)</span>}
+                  {sageLastSync.imported != null && <span> · {sageLastSync.imported} facture(s) importée(s)</span>}
+                </div>
+              )}
+              {(!sageConnected || sageExpired) && (
+                <a href="/api/sage-auth" style={{ display: 'inline-block', padding: '10px 24px', background: '#1a6bb5', borderRadius: 8, color: 'white', fontSize: 14, fontWeight: 700, textDecoration: 'none', marginTop: 4 }}>
+                  🔗 {sageExpired ? 'Reconnecter Sage' : 'Connecter Sage Accounting'}
+                </a>
+              )}
+            </div>
+
+            {/* Boutons sync */}
+            {sageConnected && !sageExpired && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 24, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 16 }}>Actions de synchronisation</div>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <button disabled={!!sageSyncing} onClick={() => runSageSync('push')} style={{ flex: 1, minWidth: 160, padding: '12px 20px', background: sageSyncing === 'push' ? C.inputBg : '#1a6bb5', border: 'none', borderRadius: 8, color: 'white', fontSize: 13, fontWeight: 700, cursor: sageSyncing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: sageSyncing && sageSyncing !== 'push' ? 0.5 : 1 }}>
+                    {sageSyncing === 'push' ? '⏳ Envoi…' : '📤 Envoyer → Sage'}
+                  </button>
+                  <button disabled={!!sageSyncing} onClick={() => runSageSync('pull')} style={{ flex: 1, minWidth: 160, padding: '12px 20px', background: sageSyncing === 'pull' ? C.inputBg : '#16a34a', border: 'none', borderRadius: 8, color: 'white', fontSize: 13, fontWeight: 700, cursor: sageSyncing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: sageSyncing && sageSyncing !== 'pull' ? 0.5 : 1 }}>
+                    {sageSyncing === 'pull' ? '⏳ Import…' : '📥 Importer ← Sage'}
+                  </button>
+                  <button disabled={!!sageSyncing} onClick={() => runSageSync('full')} style={{ flex: 1, minWidth: 160, padding: '12px 20px', background: sageSyncing === 'full' ? C.inputBg : C.accent, border: 'none', borderRadius: 8, color: 'white', fontSize: 13, fontWeight: 700, cursor: sageSyncing ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: sageSyncing && sageSyncing !== 'full' ? 0.5 : 1 }}>
+                    {sageSyncing === 'full' ? '⏳ Sync complète…' : '🔄 Sync complète'}
+                  </button>
+                </div>
+                {sageSyncResult && (
+                  <div style={{ marginTop: 14, background: sageSyncResult.ok ? '#16a34a18' : '#c0392b18', border: `1px solid ${sageSyncResult.ok ? '#16a34a' : '#c0392b'}`, borderRadius: 8, padding: '10px 14px', fontSize: 12, color: sageSyncResult.ok ? '#16a34a' : '#c0392b' }}>
+                    {sageSyncResult.ok ? (
+                      <>
+                        ✅ Synchronisation réussie !
+                        {sageSyncResult.data?.pushed != null && <span> · {sageSyncResult.data.pushed} facture(s) envoyée(s)</span>}
+                        {sageSyncResult.data?.skipped != null && <span> · {sageSyncResult.data.skipped} déjà synchronisée(s)</span>}
+                        {sageSyncResult.data?.imported != null && <span> · {sageSyncResult.data.imported} facture(s) importée(s)</span>}
+                        {sageSyncResult.data?.pull?.imported != null && <span> · {sageSyncResult.data.pull.imported} importée(s)</span>}
+                        {sageSyncResult.data?.errors?.length > 0 && <span style={{ color: '#d97706' }}> · ⚠️ {sageSyncResult.data.errors.length} erreur(s) — vérifier la console</span>}
+                      </>
+                    ) : (
+                      <>❌ Erreur : {sageSyncResult.error}</>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Explication */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20, fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
+              <div style={{ fontWeight: 700, color: C.text, marginBottom: 8 }}>Comment ça fonctionne</div>
+              <div><strong>📤 Envoyer → Sage :</strong> Envoie toutes les factures de votre historique vers Sage en tant que factures de vente. Crée automatiquement les contacts clients. Les factures déjà envoyées sont ignorées.</div>
+              <div style={{ marginTop: 6 }}><strong>📥 Importer ← Sage :</strong> Importe les factures de vente de Sage dans votre historique. Les nouvelles factures Sage apparaissent dans l'onglet Historique.</div>
+              <div style={{ marginTop: 6 }}><strong>🔄 Sync complète :</strong> Effectue l'envoi et l'import en même temps pour une synchronisation bidirectionnelle complète.</div>
+            </div>
+          </div>
+        )}
+
       </div>{/* fin content maxWidth:1200 */}
       {/* MODALS HORAIRE - desktop */}
       {showEvForm && <EventFormModal C={C} evForm={evForm} setEvForm={setEvForm} editingEvId={editingEvId} saveEventForm={saveEventForm} onClose={()=>{setShowEvForm(false);setEditingEvId(null);setEvForm(EMPTY_EV_FORM);}} />}
