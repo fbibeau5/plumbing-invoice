@@ -2197,44 +2197,147 @@ function EventFormModal({ C, evForm, setEvForm, editingEvId, saveEventForm, onCl
 }
 
 // ── PAD DE SIGNATURE ────────────────────────────────────────────────────────
+// ── TEXTE DE L'ENTENTE DE SERVICE ──────────────────────────────────────────
+const AGREEMENT = {
+  fr: [
+    { title: "1. PARTIES ET OBJET", text: "La présente entente de service (« Entente ») est conclue entre Révolution Plomberie Inc., titulaire d'une licence RBQ en règle et détentrice d'une assurance responsabilité civile en vigueur (« l'Entrepreneur »), et le client identifié ci-dessous (« le Client »). L'Entrepreneur s'engage à réaliser les travaux de plomberie décrits dans la présente Entente conformément aux règles de l'art et aux codes en vigueur." },
+    { title: "2. FRAIS MINIMUM D'APPEL DE SERVICE", text: "Le tarif minimum d'appel de service est de 300,00 $ CAD, non négociable. Ce montant comprend les deux (2) premières heures de main-d'œuvre sur place par plombier ainsi que des frais fixes de déplacement de 50,00 $ CAD pour tout déplacement dans notre zone de service standard. Ces frais sont exigibles à l'arrivée ou à la fin du service initial et s'appliquent même si les travaux sont complétés en moins de deux heures." },
+    { title: "3. MAIN-D'ŒUVRE SUPPLÉMENTAIRE", text: "Toute heure de travail excédant les deux (2) premières heures incluses dans le tarif minimum sera facturée à 125,00 $ CAD par heure, par plombier, calculée par tranches de quinze (15) minutes. Services d'urgence ou hors heures (en dehors de lundi au vendredi, 8 h 00 – 16 h 00, ou les jours fériés) : majoration de 100 % sur les tarifs standard, communiquée avant la dépêche dans la mesure du possible." },
+    { title: "4. MATÉRIAUX ET PIÈCES", text: "Les matériaux, pièces et équipements spécialisés requis ne sont pas inclus dans les tarifs de main-d'œuvre et sont facturés séparément. L'Entrepreneur se réserve le droit d'appliquer une majoration raisonnable sur les matériaux afin de couvrir l'approvisionnement, la manutention, le transport et la garantie. Une estimation des matériaux sera fournie lorsque possible, mais le coût final peut varier selon la disponibilité et les exigences spécifiques du chantier." },
+    { title: "5. TAXES APPLICABLES", text: "Tous les prix et tarifs mentionnés dans la présente Entente sont exprimés en dollars canadiens (CAD) et sont sujets à la taxe sur les produits et services (TPS – 5 %) et à la taxe de vente du Québec (TVQ – 9,975 %), qui seront ajoutées à la facture finale. Le Client est responsable du paiement de toutes les taxes applicables." },
+    { title: "6. ESTIMATIONS ET MODIFICATIONS", text: "Toute estimation fournie verbalement ou par écrit est basée sur les informations disponibles au moment de l'évaluation et constitue une approximation sujette à modification. Si des complications imprévues ou des travaux additionnels sont découverts en cours de chantier, l'Entrepreneur en informera le Client avant de procéder. Tout changement à la portée des travaux après la signature de la présente Entente devra être autorisé par le Client par écrit ou par voie électronique (courriel ou message texte consigné)." },
+    { title: "7. MODALITÉS DE PAIEMENT", text: "Le paiement de la totalité des services et des matériaux est exigible à la fin des travaux, sauf entente écrite contraire. Modes de paiement acceptés : virement Interac, carte de crédit (Visa/Mastercard), argent comptant. Les chèques sont acceptés jusqu'à concurrence de 1 000,00 $ CAD; tout chèque sans provision entraîne des frais de 50,00 $ CAD. Les factures impayées après 5 jours ouvrables sont soumises à un intérêt de 2 % par mois (24 % par an) calculé à compter de la date d'échéance. Le Client accepte de rembourser l'Entrepreneur de tous les frais raisonnables engagés pour le recouvrement des montants en souffrance, incluant les honoraires d'avocat et les frais d'agence de recouvrement." },
+    { title: "8. ANNULATION ET NO-SHOW", text: "Toute annulation ou report doit être communiqué à l'Entrepreneur au minimum 24 heures avant l'heure prévue du rendez-vous. En cas d'annulation tardive (moins de 24 heures) ou si l'Entrepreneur se présente et ne peut accéder au chantier ou commencer les travaux en raison de circonstances imputables au Client (personne absente, accès impossible, etc.), des frais d'annulation de 200,00 $ CAD seront facturés au Client." },
+    { title: "9. RESPONSABILITÉS DU CLIENT ET ACCÈS", text: "Le Client est responsable de fournir un accès sûr, dégagé et adéquat à la zone de travail pour les plombiers de l'Entrepreneur. Cela inclut notamment l'absence d'obstructions, de débris ou de matières dangereuses, et l'accessibilité des vannes d'arrêt d'eau principales. L'Entrepreneur ne déplacera pas les effets personnels du Client. En cas d'accès restreint ou dangereux, l'Entrepreneur se réserve le droit de facturer le temps d'attente ou de reporter le service, ce qui pourrait entraîner des frais supplémentaires." },
+    { title: "10. CONDITIONS CACHÉES ET IMPRÉVUS", text: "Le Client reconnaît que les systèmes de plomberie comportent souvent des composants cachés (tuyaux encastrés dans les murs, planchers ou fondations). L'Entrepreneur n'est pas responsable des conditions préexistantes, des défectuosités ou des dommages non apparents lors de l'évaluation initiale. Si des conditions imprévues (bois pourri, moisissures, amiante, dommages structuraux, fuites additionnelles, non-conformités au code, etc.) sont découvertes, l'Entrepreneur en informera le Client immédiatement. Les travaux nécessaires pour corriger ces problèmes feront l'objet d'une cotation distincte." },
+    { title: "11. DOCUMENTATION PHOTOGRAPHIQUE", text: "L'Entrepreneur se réserve le droit de prendre des photographies avant, pendant et après la réalisation des travaux à des fins de documentation interne, de contrôle de la qualité et de preuve du travail accompli. Ces photographies peuvent être utilisées dans le cadre d'un litige ou d'une réclamation d'assurance. Aucune image permettant d'identifier personnellement le Client ou sa résidence ne sera publiée sur les réseaux sociaux ou dans des documents promotionnels sans le consentement écrit du Client." },
+    { title: "12. GARANTIE", text: "L'Entrepreneur garantit sa main-d'œuvre pour une période d'un (1) an à compter de la date d'achèvement des travaux, spécifiquement pour le travail exécuté. Les pièces et matériaux fournis par l'Entrepreneur sont couverts par la garantie du fabricant, le cas échéant, et transmise au Client dans la mesure du possible. Cette garantie est nulle et non avenue en cas de mauvais usage, de négligence, de catastrophe naturelle, d'intervention par d'autres corps de métier ou de défauts préexistants non liés directement aux travaux effectués. La responsabilité totale de l'Entrepreneur en vertu de la présente Entente est limitée au montant total payé par le Client pour les services fournis. L'Entrepreneur n'est pas responsable des dommages indirects, accessoires, consécutifs ou punitifs." },
+    { title: "13. PERMIS ET INSPECTIONS", text: "Sauf disposition contraire expressément convenue par écrit, l'obtention de tout permis requis et l'organisation des inspections relèvent de la seule responsabilité du Client. Si un permis est requis et non obtenu par le Client, l'Entrepreneur se réserve le droit d'interrompre les travaux jusqu'à l'obtention des autorisations nécessaires, sans pénalité pour l'Entrepreneur et avec possibilité de facturation additionnelle." },
+    { title: "14. HYPOTHÈQUE LÉGALE DE CONSTRUCTION", text: "Le Client est informé qu'en vertu des articles 2726 et suivants du Code civil du Québec, l'Entrepreneur et ses fournisseurs de matériaux détiennent le droit de publier une hypothèque légale de construction sur l'immeuble visé par les travaux en garantie des sommes dues et impayées. Le Client renonce à tout recours contre l'Entrepreneur découlant de la publication d'une telle hypothèque en cas de non-paiement." },
+    { title: "15. DROIT DE REFUS ET FIN DE SERVICE", text: "L'Entrepreneur se réserve le droit de refuser ou de mettre fin aux travaux à tout moment si : l'environnement de travail est jugé dangereux pour la santé ou la sécurité des plombiers; le Client est non coopératif, agressif ou tente d'entraver les travaux; il y a une violation manifeste des présentes conditions, incluant des impayés de services antérieurs; ou les travaux demandés excèdent la compétence ou les autorisations légales de l'Entrepreneur." },
+    { title: "16. FORCE MAJEURE", text: "Aucune des parties ne pourra être tenue responsable d'un retard ou d'un manquement à ses obligations résultant d'un événement de force majeure, soit tout événement imprévisible, irrésistible et extérieur à la volonté des parties (notamment : catastrophe naturelle, incendie, inondation, pandémie, grève générale, interruption des services publics ou ordre gouvernemental). La partie affectée devra notifier l'autre partie sans délai et les parties conviendront de nouvelles modalités d'exécution." },
+    { title: "17. LOI APPLICABLE ET RÈGLEMENT DES DIFFÉRENDS", text: "La présente Entente est régie par les lois de la province de Québec et du Canada, notamment le Code civil du Québec. En cas de litige, les parties s'engagent à tenter de régler leur différend à l'amiable dans un délai de trente (30) jours suivant l'avis écrit du litige. À défaut d'entente, tout différend sera soumis aux tribunaux compétents du district judiciaire de Montréal, Québec, à l'exclusion de tout autre tribunal." },
+    { title: "18. SIGNATURE ÉLECTRONIQUE ET ACCEPTATION", text: "En apposant sa signature électronique sur le présent document via l'application de Révolution Plomberie Inc., le Client confirme avoir lu, compris et accepté intégralement les termes et conditions de la présente Entente de service. La signature électronique ainsi obtenue constitue une signature valide et exécutoire au sens de la Loi concernant le cadre juridique des technologies de l'information (LCCJTI, RLRQ c C-1.1) du Québec et a la même valeur légale qu'une signature manuscrite." },
+  ],
+  en: [
+    { title: "1. PARTIES AND PURPOSE", text: "This Service Agreement (\"Agreement\") is entered into between Révolution Plomberie Inc., a duly licensed plumbing contractor holding a valid RBQ license and general liability insurance (\"Contractor\"), and the client identified below (\"Client\"). The Contractor agrees to perform the plumbing work described in this Agreement in accordance with industry standards and applicable codes." },
+    { title: "2. MINIMUM SERVICE CALL FEE", text: "The minimum service call fee is $300.00 CAD, non-negotiable. This amount covers the first two (2) hours of on-site labor per plumber and a fixed travel/dispatch fee of $50.00 CAD within our standard service area. This fee is due upon arrival or completion of initial service and applies even if the work is completed in under two hours." },
+    { title: "3. ADDITIONAL LABOR CHARGES", text: "Labor beyond the initial two (2) hours is billed at $125.00 CAD per hour, per plumber, in 15-minute increments. Emergency or after-hours services (outside Monday–Friday, 8:00 AM–4:00 PM, or on holidays) are subject to a 100% surcharge on standard labor rates, communicated prior to dispatch where possible." },
+    { title: "4. MATERIALS AND PARTS", text: "All materials, parts, and specialized equipment are billed separately from labor. The Contractor reserves the right to apply a reasonable markup on materials to cover procurement, handling, transportation, and warranty. An estimate will be provided where feasible, but final costs may vary based on availability and job requirements." },
+    { title: "5. APPLICABLE TAXES", text: "All prices are in Canadian dollars (CAD) and are subject to GST (5%) and QST (9.975%), which will be added to the final invoice. The Client is responsible for all applicable taxes." },
+    { title: "6. ESTIMATES AND CHANGE ORDERS", text: "Any estimate provided verbally or in writing is an approximation based on information available at the time of assessment and is subject to change. If unforeseen complications or additional work are discovered during service, the Contractor will notify the Client before proceeding. Any change to the scope of work after signing this Agreement must be authorized by the Client in writing or electronically." },
+    { title: "7. PAYMENT TERMS", text: "Full payment is due upon completion of work unless otherwise agreed in writing. Accepted payment methods: Interac e-transfer, credit card (Visa/Mastercard), cash. Cheques are accepted up to $1,000.00 CAD; returned cheques incur a $50.00 CAD fee. Unpaid invoices after 5 business days accrue interest at 2% per month (24% per annum) from the due date. The Client agrees to reimburse the Contractor for all reasonable collection costs, including legal and agency fees." },
+    { title: "8. CANCELLATION AND NO-SHOW", text: "Cancellations or rescheduling must be communicated at least 24 hours before the scheduled appointment. Late cancellations (less than 24 hours) or situations where the Contractor arrives and cannot access the site or begin work due to Client-related issues (no one present, restricted access, etc.) will result in a $200.00 CAD cancellation/dispatch fee." },
+    { title: "9. CLIENT RESPONSIBILITIES AND ACCESS", text: "The Client is responsible for providing safe, clear, and adequate access to the work area, including accessible water shutoffs. The Contractor will not move personal belongings. Restricted or unsafe access may result in waiting time charges or rescheduling with additional fees." },
+    { title: "10. CONCEALED CONDITIONS AND UNFORESEEN ISSUES", text: "The Client acknowledges that plumbing systems often contain concealed components. The Contractor is not responsible for pre-existing conditions or non-apparent defects. If unforeseen conditions (rotted wood, mold, asbestos, structural damage, additional leaks, code non-compliance, etc.) are discovered, the Client will be notified immediately and additional work will be quoted separately." },
+    { title: "11. PHOTOGRAPHIC DOCUMENTATION", text: "The Contractor reserves the right to take photographs before, during, and after work for documentation, quality control, and evidentiary purposes. No images identifying the Client or their property personally will be published on social media or promotional materials without prior written consent from the Client." },
+    { title: "12. WARRANTY AND LIMITATION OF LIABILITY", text: "The Contractor warrants labor for one (1) year from the date of service completion for the specific work performed. Parts and materials carry the manufacturer's warranty where applicable. This warranty does not cover misuse, neglect, acts of God, work by others, or pre-existing conditions unrelated to the work performed. The Contractor's total liability is limited to the amount paid by the Client for the specific service. The Contractor is not liable for indirect, incidental, consequential, or punitive damages." },
+    { title: "13. PERMITS AND INSPECTIONS", text: "Unless explicitly agreed in writing, obtaining all required permits and arranging inspections is the Client's sole responsibility. If a required permit is not obtained by the Client, the Contractor may halt work without penalty until proper authorization is secured, with potential for additional charges." },
+    { title: "14. CONSTRUCTION HYPOTHEC (LEGAL LIEN)", text: "The Client acknowledges that under Articles 2726 et seq. of the Civil Code of Québec, the Contractor and its material suppliers have the right to register a legal construction hypothec (lien) on the property for unpaid amounts. The Client waives any claims against the Contractor arising from the registration of such hypothec in the event of non-payment." },
+    { title: "15. RIGHT TO REFUSE OR TERMINATE SERVICE", text: "The Contractor reserves the right to refuse or terminate service at any time if the work environment is unsafe; the Client is uncooperative, abusive, or interferes with work; there is a clear breach of these terms including prior unpaid balances; or the requested work exceeds the Contractor's expertise or legal authority." },
+    { title: "16. FORCE MAJEURE", text: "Neither party shall be held liable for delay or failure to perform obligations resulting from a force majeure event (natural disaster, fire, flood, pandemic, general strike, government order, or other unforeseeable and irresistible event). The affected party shall notify the other without delay and the parties shall agree on revised terms." },
+    { title: "17. GOVERNING LAW AND DISPUTE RESOLUTION", text: "This Agreement is governed by the laws of the Province of Québec and Canada, including the Civil Code of Québec. In the event of a dispute, the parties agree to attempt amicable resolution within thirty (30) days of written notice. Failing resolution, disputes shall be submitted to the courts of the judicial district of Montreal, Québec, to the exclusion of all other jurisdictions." },
+    { title: "18. ELECTRONIC SIGNATURE AND ACCEPTANCE", text: "By affixing their electronic signature to this document through the Révolution Plomberie Inc. application, the Client confirms having read, understood, and fully accepted the terms and conditions of this Service Agreement. The electronic signature obtained constitutes a valid and enforceable signature under Québec's Act to Establish a Legal Framework for Information Technology (LCCJTI, CQLR c C-1.1) and carries the same legal force as a handwritten signature." },
+  ]
+};
+
 function SigPadModal({ C, sigState, event, onClose, onSave, sigCanvasRef, startSig }) {
   const [canvasEl, setCanvasEl] = useState(null);
+  const [agreed, setAgreed] = useState(false);
+  const [lang, setLang] = useState('fr');
   const setRef = el => { if(el && !canvasEl) { setCanvasEl(el); sigCanvasRef.current = el; } };
   const clear = () => { if(!canvasEl) return; const ctx=canvasEl.getContext('2d'); ctx.clearRect(0,0,canvasEl.width,canvasEl.height); };
   const logoUrl = (typeof process !== 'undefined' && process.env && process.env.PUBLIC_URL ? process.env.PUBLIC_URL : '') + '/logo.svg';
+  const clauses = AGREEMENT[lang];
+  const isFr = lang === 'fr';
+
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:300, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-      <div style={{ background:'white', borderRadius:16, padding:24, width:'100%', maxWidth:600 }}>
-        {/* En-tête entente */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, paddingBottom:12, borderBottom:'2px solid #0c2240' }}>
-          <img src={logoUrl} alt="Révolution Plomberie" style={{ height:56 }} />
-          <div style={{ textAlign:'right' }}>
-            <div style={{ fontSize:16, fontWeight:700, color:'#0c2240' }}>Entente de service</div>
-            <div style={{ fontSize:12, color:'#888' }}>{new Date().toLocaleDateString('fr-CA',{year:'numeric',month:'long',day:'numeric'})}</div>
-            {event && <div style={{ fontSize:12, color:'#333', marginTop:4 }}>Travaux : {event.title}</div>}
-            {event?.clientName && <div style={{ fontSize:12, color:'#333' }}>Client : {event.clientName}</div>}
-            {event?.address && <div style={{ fontSize:12, color:'#333' }}>Adresse : {event.address}</div>}
-          </div>
-        </div>
-        {sigState.viewOnly ? (
-          <div>
-            <div style={{ fontSize:13, color:'#555', marginBottom:12 }}>Signature enregistrée le {event?.signedAt ? new Date(event.signedAt).toLocaleDateString('fr-CA') : ''} :</div>
-            <img src={sigState.sigData} alt="Signature" style={{ border:'1px solid #ddd', borderRadius:8, maxWidth:'100%' }} />
-            <button onClick={onClose} style={{ width:'100%', marginTop:16, padding:12, background:'#0c2240', border:'none', borderRadius:8, color:'white', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>Fermer</button>
-          </div>
-        ) : (
-          <div>
-            <div style={{ fontSize:13, color:'#333', marginBottom:12 }}>En signant ci-dessous, le client accepte l'entente de service et autorise l'exécution des travaux décrits.</div>
-            <div style={{ fontSize:12, color:'#888', marginBottom:8 }}>Signature du client :</div>
-            <canvas ref={setRef} width={550} height={160}
-              onMouseDown={e=>startSig(e,canvasEl)} onTouchStart={e=>startSig(e,canvasEl)}
-              style={{ border:'2px solid #0c2240', borderRadius:8, width:'100%', height:160, background:'#fafafa', touchAction:'none', display:'block', cursor:'crosshair' }} />
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginTop:14 }}>
-              <button onClick={onClose} style={{ padding:11, background:'#f3f4f6', border:'1px solid #ddd', borderRadius:8, color:'#555', cursor:'pointer', fontFamily:'inherit', fontSize:13 }}>Annuler</button>
-              <button onClick={clear} style={{ padding:11, background:'#fee2e2', border:'1px solid #fca5a5', borderRadius:8, color:'#c0392b', cursor:'pointer', fontFamily:'inherit', fontSize:13 }}>🗑️ Effacer</button>
-              <button onClick={()=>onSave(canvasEl)} style={{ padding:11, background:'#0c2240', border:'none', borderRadius:8, color:'white', fontWeight:700, cursor:'pointer', fontFamily:'inherit', fontSize:13 }}>✅ Confirmer</button>
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.88)', zIndex:300, display:'flex', alignItems:'center', justifyContent:'center', padding:12 }}>
+      <div style={{ background:'white', borderRadius:16, width:'100%', maxWidth:680, maxHeight:'96vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+
+        {/* ── EN-TÊTE FIXE ─────────────────────────────────── */}
+        <div style={{ padding:'18px 24px 14px', borderBottom:'3px solid #0c2240', flexShrink:0 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+            <img src={logoUrl} alt="Révolution Plomberie" style={{ height:52 }} />
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
+              <div style={{ display:'flex', gap:4 }}>
+                <button onClick={()=>setLang('fr')} style={{ padding:'4px 10px', background: isFr?'#0c2240':'#f3f4f6', border:'1px solid #ddd', borderRadius:'6px 0 0 6px', color: isFr?'white':'#555', cursor:'pointer', fontSize:12, fontWeight:700 }}>FR</button>
+                <button onClick={()=>setLang('en')} style={{ padding:'4px 10px', background: !isFr?'#0c2240':'#f3f4f6', border:'1px solid #ddd', borderRadius:'0 6px 6px 0', color: !isFr?'white':'#555', cursor:'pointer', fontSize:12, fontWeight:700 }}>EN</button>
+              </div>
+              <button onClick={onClose} style={{ background:'transparent', border:'none', color:'#888', fontSize:20, cursor:'pointer', lineHeight:1 }}>✕</button>
             </div>
           </div>
+          <div style={{ marginTop:12 }}>
+            <div style={{ fontSize:17, fontWeight:800, color:'#0c2240', letterSpacing:.5 }}>{isFr ? 'ENTENTE DE SERVICE' : 'SERVICE AGREEMENT'}</div>
+            <div style={{ fontSize:11, color:'#888', marginTop:2 }}>Révolution Plomberie Inc. · {new Date().toLocaleDateString(isFr?'fr-CA':'en-CA',{year:'numeric',month:'long',day:'numeric'})}</div>
+          </div>
+          {event && (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'2px 16px', marginTop:10, fontSize:12, color:'#333' }}>
+              {event.title && <div><strong>{isFr?'Travaux':'Work'}:</strong> {event.title}</div>}
+              {event.clientName && <div><strong>{isFr?'Client':'Client'}:</strong> {event.clientName}</div>}
+              {event.address && <div><strong>{isFr?'Adresse':'Address'}:</strong> {event.address}</div>}
+              {event.time && <div><strong>{isFr?'Date/heure':'Date/time'}:</strong> {event.date} {isFr?'à':'at'} {event.time}</div>}
+            </div>
+          )}
+        </div>
+
+        {/* ── CONTENU DÉFILABLE ─────────────────────────────── */}
+        {sigState.viewOnly ? (
+          <div style={{ padding:24, overflowY:'auto', flex:1 }}>
+            <div style={{ fontSize:13, color:'#555', marginBottom:12 }}>
+              {isFr ? `Entente signée le ${event?.signedAt ? new Date(event.signedAt).toLocaleDateString('fr-CA',{year:'numeric',month:'long',day:'numeric'}) : '—'}` : `Agreement signed on ${event?.signedAt ? new Date(event.signedAt).toLocaleDateString('en-CA') : '—'}`}
+            </div>
+            <img src={sigState.sigData} alt="Signature" style={{ border:'1px solid #ddd', borderRadius:8, maxWidth:'100%' }} />
+            <button onClick={onClose} style={{ width:'100%', marginTop:16, padding:13, background:'#0c2240', border:'none', borderRadius:8, color:'white', fontWeight:700, fontSize:14, cursor:'pointer' }}>{isFr?'Fermer':'Close'}</button>
+          </div>
+        ) : (
+          <>
+            {/* Clauses défilables */}
+            <div style={{ overflowY:'auto', flex:1, padding:'16px 24px' }}>
+              {clauses.map((c,i) => (
+                <div key={i} style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:12, fontWeight:800, color:'#0c2240', marginBottom:3, textTransform:'uppercase', letterSpacing:.4 }}>{c.title}</div>
+                  <div style={{ fontSize:12, color:'#333', lineHeight:1.65 }}>{c.text}</div>
+                </div>
+              ))}
+              <div style={{ marginTop:12, padding:12, background:'#f0f4ff', borderRadius:8, border:'1px solid #c7d6f7', fontSize:11, color:'#0c2240' }}>
+                {isFr ? '⚖️ Ce contrat est régi par le Code civil du Québec et la Loi sur la protection du consommateur (LPC). La signature électronique ci-dessous a la même valeur légale qu\'une signature manuscrite en vertu de la LCCJTI (RLRQ c C-1.1).'
+                      : '⚖️ This agreement is governed by the Civil Code of Québec and the Consumer Protection Act. The electronic signature below has the same legal force as a handwritten signature under Québec\'s LCCJTI (CQLR c C-1.1).'}
+              </div>
+            </div>
+
+            {/* ── ZONE DE SIGNATURE FIXE EN BAS ─────────────── */}
+            <div style={{ padding:'14px 24px 20px', borderTop:'2px solid #e5e7eb', flexShrink:0, background:'#fafafa' }}>
+              {/* Checkbox acceptation */}
+              <label style={{ display:'flex', alignItems:'flex-start', gap:10, marginBottom:14, cursor:'pointer' }}>
+                <input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)} style={{ width:18, height:18, marginTop:2, flexShrink:0, accentColor:'#0c2240' }} />
+                <span style={{ fontSize:13, color:'#333', lineHeight:1.5 }}>
+                  {isFr ? 'J\'ai lu, compris et j\'accepte intégralement les termes et conditions de l\'entente de service ci-dessus.' : 'I have read, understood, and fully accept the terms and conditions of the service agreement above.'}
+                </span>
+              </label>
+
+              {/* Pad signature */}
+              <div style={{ fontSize:12, color:'#555', marginBottom:6, fontWeight:600 }}>
+                {isFr ? 'Signature du client :' : 'Client signature:'}
+              </div>
+              <canvas ref={setRef} width={620} height={130}
+                onMouseDown={e=>startSig(e,canvasEl)} onTouchStart={e=>startSig(e,canvasEl)}
+                style={{ border:'2px solid #0c2240', borderRadius:8, width:'100%', height:130, background:'white', touchAction:'none', display:'block', cursor:'crosshair' }} />
+              <div style={{ fontSize:11, color:'#aaa', marginTop:4, marginBottom:12 }}>
+                {isFr ? '✍️ Signez avec votre doigt ou la souris' : '✍️ Sign with your finger or mouse'}
+              </div>
+
+              {/* Boutons */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
+                <button onClick={onClose} style={{ padding:11, background:'#f3f4f6', border:'1px solid #ddd', borderRadius:8, color:'#555', cursor:'pointer', fontSize:13 }}>{isFr?'Annuler':'Cancel'}</button>
+                <button onClick={clear} style={{ padding:11, background:'#fee2e2', border:'1px solid #fca5a5', borderRadius:8, color:'#c0392b', cursor:'pointer', fontSize:13 }}>🗑️ {isFr?'Effacer':'Clear'}</button>
+                <button onClick={()=>{ if(agreed) onSave(canvasEl); }} disabled={!agreed}
+                  style={{ padding:11, background:agreed?'#0c2240':'#c8d3e0', border:'none', borderRadius:8, color:'white', fontWeight:700, cursor:agreed?'pointer':'not-allowed', fontSize:13 }}>
+                  {agreed ? `✅ ${isFr?'Confirmer':'Confirm'}` : `🔒 ${isFr?'Accepter d\'abord':'Accept first'}`}
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>
