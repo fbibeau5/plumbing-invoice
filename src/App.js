@@ -728,6 +728,18 @@ export default function App() {
         {/* Mobile Header */}
         <div style={{ background: C.header, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
           <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ height: 36, filter: 'brightness(0) invert(1)', display: 'block' }} />
+          <div className="no-print" style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setShowThemes(p => !p)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 16 }}>🎨</button>
+            <button onClick={() => setMobileView('desktop')} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>🖥️</button>
+            <button onClick={() => { localStorage.removeItem('plomb_auth'); setAuthed(false); }} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 12 }}>🔒</button>
+          </div>
+          {showThemes && (
+            <div className="no-print" style={{ position: 'absolute', right: 12, top: 56, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, zIndex: 100, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
+              {Object.entries(THEMES).map(([key, t]) => (
+                <button key={key} onClick={() => { setThemeName(key); setShowThemes(false); }} style={{ display: 'block', width: '100%', padding: '10px 12px', background: themeName === key ? C.accent : 'transparent', border: 'none', borderRadius: 6, color: themeName === key ? 'white' : C.text, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', textAlign: 'left', fontWeight: themeName === key ? 700 : 400 }}>{t.name}</button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Mobile Content */}
@@ -1170,6 +1182,22 @@ export default function App() {
                 cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: tab === id ? 600 : 400
               }}>{label}</button>
             ))}
+            <div className="no-print" style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8 }}>
+              {isMobile && (
+                <button onClick={() => setMobileView('mobile')} style={{ padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, color: "white", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>📱</button>
+              )}
+              <button onClick={() => { localStorage.removeItem('plomb_auth'); setAuthed(false); }} style={{ padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, color: "white", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>🔒</button>
+              <div style={{ position: "relative" }}>
+                <button onClick={() => setShowThemes(p => !p)} style={{ padding: "8px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, color: "white", cursor: "pointer", fontSize: 16, fontFamily: "inherit" }}>🎨</button>
+                {showThemes && (
+                  <div style={{ position: "absolute", right: 0, top: 44, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 8, zIndex: 100, minWidth: 140, boxShadow: "0 4px 16px rgba(0,0,0,0.15)" }}>
+                    {Object.entries(THEMES).map(([key, t]) => (
+                      <button key={key} onClick={() => { setThemeName(key); setShowThemes(false); }} style={{ display: "block", width: "100%", padding: "8px 12px", background: themeName === key ? C.accent : "transparent", border: "none", borderRadius: 5, color: themeName === key ? "white" : C.text, cursor: "pointer", fontSize: 13, fontFamily: "inherit", textAlign: "left", fontWeight: themeName === key ? 600 : 400 }}>{t.name}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
