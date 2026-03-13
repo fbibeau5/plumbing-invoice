@@ -2272,7 +2272,6 @@ export default function App() {
             </div>
           </div>
         )}
-        )}
 
         {/* MARGINS TAB */}
         {tab === "margins" && (() => {
