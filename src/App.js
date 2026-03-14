@@ -139,6 +139,55 @@ const THEMES = {
   },
 };
 
+function SigningPage({ token }) {
+  const [status, setStatus] = React.useState('loading');
+  const [errorMsg, setErrorMsg] = React.useState('');
+  React.useEffect(() => {
+    fetch('/api/sign-agreement?token=' + token).then(r => r.json()).then(d => {
+      if (d.error) { setStatus('error'); setErrorMsg(d.error); }
+      else if (d.status === 'signed') setStatus('signed');
+      else setStatus('pending');
+    }).catch(e => { setStatus('error'); setErrorMsg(e.message); });
+  }, [token]);
+  async function handleSign() {
+    setStatus('signing');
+    try {
+      const r = await fetch('/api/sign-agreement', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+      const d = await r.json();
+      if (d.ok) setStatus('signed'); else { setStatus('pending'); setErrorMsg(d.error || 'Erreur'); }
+    } catch(e) { setStatus('pending'); setErrorMsg(e.message); }
+  }
+  const cs = { minHeight:'100vh', background:'#f0f4f0', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Arial,sans-serif', padding:16 };
+  const cd = { background:'white', borderRadius:12, padding:'32px 28px', maxWidth:560, width:'100%', boxShadow:'0 4px 20px rgba(0,0,0,0.1)' };
+  if (status === 'loading') return React.createElement('div', {style:cs}, React.createElement('div', {style:cd}, React.createElement('p', {style:{textAlign:'center',color:'#777'}}, 'Chargement\u2026')));
+  if (status === 'error') return React.createElement('div', {style:cs}, React.createElement('div', {style:cd}, React.createElement('h2', {style:{color:'#c62828',textAlign:'center'}}, 'Lien invalide'), React.createElement('p', {style:{color:'#555',textAlign:'center'}}, errorMsg || 'Ce lien est invalide ou a expir\u00e9.')));
+  if (status === 'signed') return React.createElement('div', {style:cs}, React.createElement('div', {style:{...cd,textAlign:'center'}}, React.createElement('div', {style:{fontSize:56,marginBottom:12}}, '\u2705'), React.createElement('h2', {style:{color:'#1b5e20'}}, 'Entente accept\u00e9e'), React.createElement('p', {style:{color:'#555'}}, 'Merci\u00a0! Votre confirmation a \u00e9t\u00e9 enregistr\u00e9e.'), React.createElement('p', {style:{color:'#1b5e20',fontWeight:700,marginTop:24}}, 'Plomberie R\u00e9volution')));
+  return (
+    React.createElement('div', {style:cs},
+      React.createElement('div', {style:cd},
+        React.createElement('div', {style:{textAlign:'center',marginBottom:24}},
+          React.createElement('h1', {style:{color:'#1b5e20',margin:0,fontSize:24}}, 'Plomberie R\u00e9volution'),
+          React.createElement('p', {style:{color:'#777',margin:'4px 0 0'}}, 'Entente de service')
+        ),
+        React.createElement('div', {style:{background:'#f8f9fa',borderRadius:8,padding:16,marginBottom:20,borderLeft:'4px solid #1b5e20'}},
+          React.createElement('p', {style:{margin:'0 0 8px',color:'#555',fontWeight:600}}, 'Conditions accept\u00e9es\u00a0:'),
+          React.createElement('ul', {style:{color:'#555',lineHeight:2,margin:0,paddingLeft:20}},
+            React.createElement('li', null, 'Travaux selon les normes du b\u00e2timent en vigueur'),
+            React.createElement('li', null, 'Devis final remis avant le d\u00e9but des travaux'),
+            React.createElement('li', null, 'Paiement d\u00fb \u00e0 la fin des travaux'),
+            React.createElement('li', null, 'Garantie de 1 an sur la main-d\u2019\u0153uvre')
+          )
+        ),
+        errorMsg ? React.createElement('p', {style:{color:'#c62828',textAlign:'center',marginBottom:16}}, errorMsg) : null,
+        React.createElement('button', {onClick:handleSign, disabled:status==='signing', style:{display:'block',width:'100%',padding:16,background:status==='signing'?'#81c784':'#1b5e20',color:'white',border:'none',borderRadius:10,fontSize:17,fontWeight:700,cursor:status==='signing'?'default':'pointer'}},
+          status === 'signing' ? 'Envoi\u2026' : '\u2705 Je confirme et accepte l\'entente de service'
+        ),
+        React.createElement('p', {style:{color:'#bbb',fontSize:11,textAlign:'center',marginTop:16,lineHeight:1.6}}, 'Cette confirmation \u00e9lectronique est l\u00e9galement valide (LCCJTI).')
+      )
+    )
+  );
+}
+
 export default function App() {
   const [tab, setTab] = useState("parse");
   const [notesText, setNotesText] = useState(() => localStorage.getItem('notesText') ?? SAMPLE_NOTES);
@@ -197,6 +246,7 @@ export default function App() {
   const [sageExpired, setSageExpired] = useState(false);
   const [sageLastSync, setSageLastSync] = useState(null);
   const [sageSyncing, setSageSyncing] = useState(null); // null | 'push' | 'pull' | 'full'
+  const [agreementMap, setAgreementMap] = React.useState(() => { try { return JSON.parse(localStorage.getItem('agreementMap') || '{}'); } catch(_) { return {}; } });
   const [sageSyncResult, setSageSyncResult] = useState(null); // résultat dernière sync
   const [sageNotif, setSageNotif] = useState(null); // message de notification
 
@@ -227,6 +277,26 @@ export default function App() {
       else { alert('Erreur Sage: ' + (d.error || 'Inconnue')); }
     } catch(err) { alert('Erreur reseau: ' + err.message); }
     finally { setSageSyncing(prev => { const n = new Set(prev); n.delete(entry.id); return n; }); }
+  }
+  async function sendAgreement(ev) {
+    const email = window.prompt('Courriel du client:');
+    if (!email) return;
+    if (!email.includes('@')) { alert('Courriel invalide'); return; }
+    try {
+      const r = await fetch('/api/send-agreement', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId: ev.id, clientName: ev.clientName || '', address: ev.address || '', date: ev.date || '', jobDesc: ev.notes || ev.title || '', clientEmail: email }) });
+      const d = await r.json();
+      if (d.ok) { const upd = { ...agreementMap, [ev.id]: { token: d.token, status: 'pending', email, sentAt: new Date().toISOString() } }; setAgreementMap(upd); try { localStorage.setItem('agreementMap', JSON.stringify(upd)); } catch(_e) {} alert('Entente envoy\u00e9e \u00e0 ' + email); }
+      else { alert('Erreur: ' + (d.error || 'Inconnue')); }
+    } catch(err) { alert('Erreur r\u00e9seau: ' + err.message); }
+  }
+  async function checkAgreementStatus(eventId) {
+    const ag = agreementMap[eventId];
+    if (!ag || !ag.token || ag.status === 'signed') return;
+    try {
+      const r = await fetch('/api/sign-agreement?token=' + ag.token);
+      const d = await r.json();
+      if (d.status === 'signed') { const upd = { ...agreementMap, [eventId]: { ...ag, status: 'signed', signedAt: d.signedAt } }; setAgreementMap(upd); try { localStorage.setItem('agreementMap', JSON.stringify(upd)); } catch(_e) {} }
+    } catch(_) {}
   }
 
   const saveToHistory = (items, client, job, num, bonus = 0) => {
@@ -957,6 +1027,8 @@ export default function App() {
       { id: 'margins',  icon: '📊', label: 'Marges' },
       { id: 'sage',     icon: '🟢', label: 'Sage' },
     ];
+  const _signToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('sign') : null;
+  if (_signToken) return React.createElement(SigningPage, { token: _signToken });
     return (
       <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui,-apple-system,sans-serif', color: C.text, paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
         <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.14, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
@@ -1357,6 +1429,7 @@ export default function App() {
                         )}
                         <button onClick={() => { if(window.confirm('Supprimer ce rendez-vous?')) deleteScheduleEvent(ev.id); }} style={{ padding:'8px 12px', background:'transparent', border:`1px solid #c0392b`, borderRadius:8, color:'#c0392b', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>🗑️</button>
                         <button onClick={() => { setClientName(ev.clientName || ''); setJobAddress(ev.address || ''); setJobDesc(ev.notes || ev.title || ''); setTab('parse'); }} style={{ padding:'6px 10px', background:'#1b5e20', border:'none', borderRadius:8, color:'white', fontSize:12, cursor:'pointer', fontWeight:700, marginLeft:4 }}>Facturer</button>
+                        {(() => { const ag = agreementMap[ev.id]; return ag ? (<div style={{display:'flex',alignItems:'center',gap:4,marginLeft:4}}><div style={{fontSize:10,padding:'2px 6px',borderRadius:6,background:ag.status==='signed'?'#e8f5e9':'#fff3e0',color:ag.status==='signed'?'#2e7d32':'#e65100',fontWeight:700,whiteSpace:'nowrap'}}>{ag.status==='signed'?'Sign\u00e9':'Attente'}</div>{ag.status!=='signed'&&(<button onClick={()=>checkAgreementStatus(ev.id)} style={{padding:'2px 6px',background:'none',border:'1px solid #e65100',borderRadius:6,color:'#e65100',fontSize:10,cursor:'pointer'}}>\u21bb</button>)}</div>) : (<button onClick={()=>sendAgreement(ev)} style={{padding:'6px 10px',background:'#0d47a1',border:'none',borderRadius:8,color:'white',fontSize:12,cursor:'pointer',fontWeight:700,marginLeft:4}}>Entente</button>); })()}
                       </div>
                     </div>
                   ))
