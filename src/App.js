@@ -197,7 +197,6 @@ export default function App() {
   const [sageConnected, setSageConnected] = useState(false);
   const [sageExpired, setSageExpired] = useState(false);
   const [sageLastSync, setSageLastSync] = useState(null);
-  const [sageSyncing, setSageSyncing] = useState(null); // null | 'push' | 'pull' | 'full'
   const [sageSyncResult, setSageSyncResult] = useState(null); // rÃ©sultat derniÃ¨re sync
   const [sageNotif, setSageNotif] = useState(null); // message de notification
 
