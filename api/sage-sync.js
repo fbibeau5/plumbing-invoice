@@ -260,6 +260,71 @@ export default async function handler(req, res) {
   try {
     const token = await getValidToken();
 
+        // ── PUSH ONE : Envoyer une seule facture vers Sage ─────────────────────────
+    if (action === 'pushOne') {
+      const { entryId } = body;
+      if (!entryId) return res.status(400).json({ error: 'entryId requis' });
+
+      const history = (await rGet(HISTORY_KEY)) || [];
+      const invoiceMap = (await rGet(SAGE_INV_MAP_KEY)) || {};
+      const contactMap = (await rGet(SAGE_CON_MAP_KEY)) || {};
+
+      // Déjà synchronisé ?
+      if (invoiceMap[entryId]) {
+        try {
+          const existing = await sageGet(`/sales_invoices/${invoiceMap[entryId]}`, token);
+          return res.status(200).json({
+            ok: true, alreadySynced: true,
+            sageInvoiceId: invoiceMap[entryId],
+            sageInvoiceNum: existing.invoice_number || existing.reference || '',
+          });
+        } catch(e) {
+          return res.status(200).json({ ok: true, alreadySynced: true, sageInvoiceId: invoiceMap[entryId] });
+        }
+      }
+
+      const entry = history.find(e => e.id === entryId);
+      if (!entry) return res.status(404).json({ error: 'Facture introuvable' });
+      if (!entry.items || entry.items.length === 0) return res.status(400).json({ error: 'Aucun article dans cette facture' });
+
+      const ledgerId = await getDefaultLedgerId(token);
+      const contactId = await findOrCreateContact(entry.clientName, token, contactMap);
+
+      const invoiceLines = entry.items.map(item => {
+        const dim = item.product.dim && item.product.dim !== 'n/a' ? ` (${item.product.dim})` : '';
+        return {
+          description: `${item.product.name}${dim}`,
+          quantity: parseFloat(item.qty),
+          unit_price: parseFloat((item.product.sell || 0).toFixed(2)),
+          ...(ledgerId ? { ledger_account_id: ledgerId } : {}),
+        };
+      });
+
+      const date = entry.savedAt ? entry.savedAt.slice(0, 10) : new Date().toISOString().slice(0, 10);
+      const dueDate = new Date(new Date(date).getTime() + 30 * 86_400_000).toISOString().slice(0, 10);
+
+      const created = await sagePost('/sales_invoices', {
+        sales_invoice: {
+          date, due_date: dueDate,
+          reference: entry.invoiceNum || ('APP-' + entry.id.slice(0, 8)),
+          notes: entry.jobDesc || '',
+          invoice_lines: invoiceLines,
+          ...(contactId ? { contact_id: contactId } : {}),
+        },
+      }, token);
+
+      const sageId = created.id || created.sales_invoice?.id;
+      const sageInvoiceNum = created.invoice_number || created.sales_invoice?.invoice_number || entry.invoiceNum || '';
+
+      if (sageId) {
+        invoiceMap[entryId] = sageId;
+        await rSet(SAGE_INV_MAP_KEY, invoiceMap);
+        await rSet(SAGE_CON_MAP_KEY, contactMap);
+      }
+
+      return res.status(200).json({ ok: true, sageInvoiceId: sageId, sageInvoiceNum });
+    }
+
     // ── PUSH : App → Sage ────────────────────────────────────────────────────
     if (action === 'push') {
       const history    = (await rGet(HISTORY_KEY))      || [];
