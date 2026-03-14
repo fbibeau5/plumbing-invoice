@@ -161,6 +161,92 @@ async function findOrCreateContact(clientName, token, contactMap) {
   }
 }
 
+// ── Convertir une facture Sage en entrée d'historique App ─────────────────────
+// Récupère les détails complets d'une facture individuelle si nécessaire
+async function sageInvoiceToEntry(si, token) {
+  // Les lignes de facture peuvent être absentes ou vides dans la liste paginée.
+  // On récupère le détail complet si invoice_lines est absent ou si unit_price est 0.
+  let fullSi = si;
+  const listLines = si.invoice_lines || [];
+  const needsDetail =
+    listLines.length === 0 ||
+    listLines.some(l => !parseFloat(l.unit_price) && !parseFloat(l.net_amount));
+
+  if (needsDetail && si.id) {
+    try {
+      fullSi = await sageGet(`/sales_invoices/${si.id}`, token);
+    } catch (e) {
+      console.warn(`Impossible de récupérer le détail de la facture ${si.id}:`, e.message);
+      fullSi = si;
+    }
+  }
+
+  // Nom du contact — Sage utilise displayed_as dans les objets imbriqués
+  const clientName =
+    fullSi.contact?.displayed_as ||
+    fullSi.contact?.name ||
+    si.contact?.displayed_as ||
+    si.contact?.name ||
+    '';
+
+  // Lignes de facture avec calcul de prix de repli
+  const items = (fullSi.invoice_lines || listLines).map((line, i) => {
+    const qty = parseFloat(line.quantity) || 1;
+
+    // unit_price peut être 0 si la ligne est liée à un produit du catalogue Sage.
+    // Dans ce cas, on calcule le prix depuis net_amount / quantity.
+    let unitPrice = parseFloat(line.unit_price);
+    if (!unitPrice && line.net_amount) {
+      unitPrice = parseFloat(line.net_amount) / qty;
+    }
+    unitPrice = unitPrice || 0;
+
+    return {
+      id:  Math.random().toString(36).slice(2) + Date.now().toString(36),
+      qty,
+      product: {
+        code:     90000 + i,
+        name:     line.description || line.product?.displayed_as || 'Service Sage',
+        dim:      'n/a',
+        category: 'FINITION',
+        cost:     parseFloat((unitPrice * 0.6).toFixed(2)),  // estimation coût à 60% du prix de vente
+        sell:     parseFloat(unitPrice.toFixed(2)),
+      },
+    };
+  });
+
+  // Totaux — Sage v3.1 utilise total_net_amount (HT) et total_amount (TTC)
+  const subtotal = parseFloat(fullSi.total_net_amount ?? fullSi.net_amount ?? si.total_net_amount ?? si.net_amount) || 0;
+  const total    = parseFloat(fullSi.total_amount   ?? si.total_amount) || 0;
+
+  // Si on n'a pas de lignes mais qu'on a un total, créer une ligne synthétique
+  const finalItems = items.length > 0 ? items : (subtotal > 0 ? [{
+    id:  Math.random().toString(36).slice(2) + Date.now().toString(36),
+    qty: 1,
+    product: {
+      code:     90000,
+      name:     fullSi.notes || fullSi.reference || 'Service Sage',
+      dim:      'n/a',
+      category: 'FINITION',
+      cost:     parseFloat((subtotal * 0.6).toFixed(2)),
+      sell:     parseFloat(subtotal.toFixed(2)),
+    },
+  }] : []);
+
+  return {
+    id:         'sage_' + fullSi.id,
+    savedAt:    fullSi.date ? fullSi.date + 'T12:00:00.000Z' : new Date().toISOString(),
+    clientName,
+    jobDesc:    fullSi.notes || fullSi.reference || '',
+    invoiceNum: fullSi.invoice_number || fullSi.reference || si.invoice_number || si.reference || '',
+    items:      finalItems,
+    subtotal,
+    total,
+    margeBonus: 0,
+    fromSage:   true,
+  };
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -244,7 +330,7 @@ export default async function handler(req, res) {
         reverseMap[sageId] = appId;
       }
 
-      // Récupérer les factures Sage (2 pages max)
+      // Récupérer les factures Sage (statuts OUTSTANDING et PAID)
       let sageInvoices = [];
       try {
         const pages = [
@@ -264,36 +350,27 @@ export default async function handler(req, res) {
         sageInvoices = data.$items || data.items || (Array.isArray(data) ? data : []);
       }
 
+      // Dédupliquer par id Sage
+      const seen = new Set();
+      sageInvoices = sageInvoices.filter(si => {
+        if (seen.has(si.id)) return false;
+        seen.add(si.id);
+        return true;
+      });
+
       const newEntries = [];
+      const errors = [];
 
       for (const si of sageInvoices) {
-        if (reverseMap[si.id]) continue; // déjà suivi
+        if (reverseMap[si.id]) continue; // déjà importé
 
-        const entry = {
-          id:         'sage_' + si.id,
-          savedAt:    si.date ? si.date + 'T12:00:00.000Z' : new Date().toISOString(),
-          clientName: si.contact?.name || '',
-          jobDesc:    si.notes || si.reference || '',
-          invoiceNum: si.invoice_number || si.reference || '',
-          items: (si.invoice_lines || []).map((line, i) => ({
-            qty: parseFloat(line.quantity) || 1,
-            product: {
-              code:     90000 + i,
-              name:     line.description || 'Service Sage',
-              dim:      'n/a',
-              category: 'FINITION',
-              cost:     parseFloat(line.unit_price) || 0,
-              sell:     parseFloat(line.unit_price) || 0,
-            },
-          })),
-          subtotal:   parseFloat(si.net_amount)   || 0,
-          total:      parseFloat(si.total_amount) || 0,
-          margeBonus: 0,
-          fromSage:   true,
-        };
-
-        newEntries.push(entry);
-        invoiceMap[entry.id] = si.id;
+        try {
+          const entry = await sageInvoiceToEntry(si, token);
+          newEntries.push(entry);
+          invoiceMap[entry.id] = si.id;
+        } catch (e) {
+          errors.push({ sageId: si.id, error: e.message });
+        }
       }
 
       if (newEntries.length > 0) {
@@ -304,15 +381,14 @@ export default async function handler(req, res) {
       }
 
       await rSet('sage_last_sync', {
-        at: new Date().toISOString(), direction: 'pull', imported: newEntries.length,
+        at: new Date().toISOString(), direction: 'pull', imported: newEntries.length, errors: errors.length,
       });
 
-      return res.status(200).json({ ok: true, imported: newEntries.length });
+      return res.status(200).json({ ok: true, imported: newEntries.length, errors });
     }
 
     // ── FULL : Push puis Pull ────────────────────────────────────────────────
     if (action === 'full') {
-      // Réutiliser la logique push puis pull en appelant récursivement
       const pushRes = await callAction('push', token);
       const pullRes = await callAction('pull', token);
       return res.status(200).json({
@@ -332,7 +408,6 @@ export default async function handler(req, res) {
 
 // Helper pour l'action 'full' — exécute push et pull dans la même fonction
 async function callAction(action, token) {
-  // Helper interne (évite duplication — partage le token déjà validé)
   try {
     const history    = (await rGet(HISTORY_KEY))      || [];
     const invoiceMap = (await rGet(SAGE_INV_MAP_KEY)) || {};
@@ -389,21 +464,25 @@ async function callAction(action, token) {
         sageInvoices = data.$items || data.items || (Array.isArray(data) ? data : []);
       } catch (e) { /* ignorer */ }
 
+      // Dédupliquer
+      const seen = new Set();
+      sageInvoices = sageInvoices.filter(si => {
+        if (seen.has(si.id)) return false;
+        seen.add(si.id);
+        return true;
+      });
+
       const newEntries = [];
+      const errors = [];
       for (const si of sageInvoices) {
         if (reverseMap[si.id]) continue;
-        const entry = {
-          id: 'sage_' + si.id,
-          savedAt: si.date ? si.date + 'T12:00:00.000Z' : new Date().toISOString(),
-          clientName: si.contact?.name || '', jobDesc: si.notes || '', invoiceNum: si.invoice_number || si.reference || '',
-          items: (si.invoice_lines || []).map((line, i) => ({
-            qty: parseFloat(line.quantity) || 1,
-            product: { code: 90000 + i, name: line.description || 'Service Sage', dim: 'n/a', category: 'FINITION', cost: parseFloat(line.unit_price) || 0, sell: parseFloat(line.unit_price) || 0 },
-          })),
-          subtotal: parseFloat(si.net_amount) || 0, total: parseFloat(si.total_amount) || 0, margeBonus: 0, fromSage: true,
-        };
-        newEntries.push(entry);
-        invoiceMap[entry.id] = si.id;
+        try {
+          const entry = await sageInvoiceToEntry(si, token);
+          newEntries.push(entry);
+          invoiceMap[entry.id] = si.id;
+        } catch (e) {
+          errors.push({ sageId: si.id, error: e.message });
+        }
       }
       if (newEntries.length > 0) {
         const existing = history.filter(h => !newEntries.some(n => n.id === h.id));
@@ -411,7 +490,7 @@ async function callAction(action, token) {
         await rSet(SAGE_INV_MAP_KEY, invoiceMap);
       }
       await rSet('sage_last_sync', { at: new Date().toISOString(), direction: 'full', imported: newEntries.length });
-      return { imported: newEntries.length };
+      return { imported: newEntries.length, errors: errors.length };
     }
   } catch (e) {
     return { error: e.message };
