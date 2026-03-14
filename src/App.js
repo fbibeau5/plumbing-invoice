@@ -1366,6 +1366,7 @@ export default function App() {
                           >{reminderSending[ev.id+'_confirmation']==='sending'?'â³':reminderSending[ev.id+'_confirmation']==='ok'?'â EnvoyÃ©':reminderSending[ev.id+'_confirmation']==='err'?'â Erreur':'â Confirmer'}</button>
                         )}
                         <button onClick={() => { if(window.confirm('Supprimer ce rendez-vous?')) deleteScheduleEvent(ev.id); }} style={{ padding:'8px 12px', background:'transparent', border:`1px solid #c0392b`, borderRadius:8, color:'#c0392b', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>ðï¸</button>
+                        <button onClick={() => { setClientName(ev.clientName || ''); setJobAddress(ev.address || ''); setJobDesc(ev.notes || ev.title || ''); setTab('parse'); }} style={{ padding:'6px 10px', background:'#1b5e20', border:'none', borderRadius:8, color:'white', fontSize:12, cursor:'pointer', fontWeight:700, marginLeft:4 }}>📋 Facturer</button>
                       </div>
                     </div>
                   ))
