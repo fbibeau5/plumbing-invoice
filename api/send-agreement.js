@@ -1,8 +1,9 @@
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
-const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME || 'Plomberie Révolution';
+const nodemailer = require('nodemailer');
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+const FROM_NAME = process.env.RESEND_FROM_NAME || 'Plomberie Révolution';
 const APP_URL = process.env.APP_URL || 'https://plumbing-invoice.vercel.app';
 
 async function upstashSet(key, value) {
@@ -67,16 +68,8 @@ export default async function handler(req, res) {
     await upstashSet('agreement-by-event:' + eventId, token);
     var signingUrl = APP_URL + '/api/sign-agreement?token=' + token;
     var html = generateEmailHtml(agreement, signingUrl);
-    var emailRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: RESEND_FROM_NAME + ' <' + RESEND_FROM_EMAIL + '>', to: [clientEmail], subject: 'Entente de service – Plomberie Révolution', html: html })
-    });
-    var emailData = await emailRes.json();
-    if (!emailRes.ok) {
-      console.error('Resend error:', JSON.stringify(emailData));
-      return res.status(emailRes.status).json({ error: 'Email failed', details: emailData });
-    }
+    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD } });
+    await transporter.sendMail({ from: FROM_NAME + ' <' + GMAIL_USER + '>', to: clientEmail, subject: 'Entente de service – Plomberie Révolution', html: html });
     console.log('Agreement sent to ' + clientEmail + ' token:' + token);
     return res.json({ ok: true, token: token });
   } catch (err) {
