@@ -132,6 +132,15 @@ function alreadySignedPage(agreement) {
 }
 
 export default async function handler(req, res) {
+  // Cross-device sync: lookup by eventId (no token required)
+  if (req.method === 'GET' && req.query.eventId && !req.query.token) {
+    try {
+      const ag = await redisGet('agreementByEvent:' + req.query.eventId);
+      res.setHeader('Cache-Control', 'no-store');
+      if (!ag) return res.status(200).json({ ok: true, status: null });
+      return res.status(200).json({ ok: true, status: ag.status, token: ag.token, signedAt: ag.signedAt || null, clientEmail: ag.clientEmail });
+    } catch(e) { return res.status(500).json({ error: e.message }); }
+  }
   const token = req.method === 'GET' ? req.query.token : (req.body || {}).token;
   if (!token) return res.status(400).json({ error: 'token requis' });
   try {
