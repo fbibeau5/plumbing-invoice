@@ -1852,6 +1852,9 @@ export default function App() {
                             style={{ flex:1, minWidth:80, padding:'7px 0', background: reminderSending[ev.id+'_confirmation']==='ok'?'#16a34a': reminderSending[ev.id+'_confirmation']==='err'?'#c0392b':'#1a6bb5', border:'none', borderRadius:6, color:'white', fontSize:11, cursor:'pointer', fontFamily:'inherit', opacity: reminderSending[ev.id+'_confirmation']==='sending'?0.7:1 }}
                           >{reminderSending[ev.id+'_confirmation']==='sending'?'⏳':reminderSending[ev.id+'_confirmation']==='ok'?'✅':reminderSending[ev.id+'_confirmation']==='err'?'❌':'✅ Confirmer'}</button>
                         )}
+                        <button onClick={()=>sendAgreement(ev)} style={{padding:'6px 10px',background:agreementMap[ev.id]?'#546e7a':'#0d47a1',border:'none',borderRadius:8,color:'white',fontSize:12,cursor:'pointer',fontWeight:700,marginLeft:4}}>{agreementMap[ev.id]?'Renvoyer ↺':'Entente'}</button>
+                        {agreementMap[ev.id] && agreementMap[ev.id].status !== 'signed' && (<span style={{fontSize:10,padding:'2px 6px',borderRadius:6,background:'#fff3e0',color:'#e65100',fontWeight:700,marginLeft:4,cursor:'pointer'}} onClick={()=>checkAgreementStatus(ev.id)}>En attente</span>)}
+                        {agreementMap[ev.id] && agreementMap[ev.id].status === 'signed' && (<span style={{fontSize:10,padding:'2px 6px',borderRadius:6,background:'#e8f5e9',color:'#2e7d32',fontWeight:700,marginLeft:4}}>Signé</span>)}
                         <button onClick={() => { if(window.confirm('Supprimer?')) deleteScheduleEvent(ev.id); }} style={{ padding:'7px 10px', background:'transparent', border:`1px solid #c0392b`, borderRadius:6, color:'#c0392b', fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>🗑️</button>
                       </div>
                     </div>
