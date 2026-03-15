@@ -144,18 +144,20 @@ export default async function handler(req, res) {
 
     // GET: check=1 returns JSON for app status check; otherwise serve HTML signing page
     if (req.method === 'GET') {
-      if (req.query.check) {
+      const wantsHtml = (req.headers.accept || '').startsWith('text/html');
+      if (!wantsHtml) {
+        // fetch() from app - return JSON (works with or without ?check=1)
+        res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ ok: true, status: agreement.status, signedAt: agreement.signedAt || null });
       }
+      // Browser navigation (email link) - serve HTML signing page
       if (agreement.status === 'signed') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         return res.status(200).send(alreadySignedPage(agreement));
       }
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.status(200).send(generateSigningPage(agreement, token));
-    }
-
-    // POST: sign the agreement
+    }// POST: sign the agreement
     if (agreement.status === 'signed') {
       return res.status(200).json({ ok: true, alreadySigned: true, signedAt: agreement.signedAt });
     }
