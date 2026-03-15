@@ -1,8 +1,9 @@
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
-const RESEND_FROM_NAME = process.env.RESEND_FROM_NAME || 'Plomberie Révolution';
+const nodemailer = require('nodemailer');
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+const FROM_NAME = process.env.RESEND_FROM_NAME || 'Plomberie Révolution';
 
 async function redisSet(key, value) {
   await fetch(`${UPSTASH_URL}/set/${encodeURIComponent(key)}`, {
@@ -168,27 +169,19 @@ export default async function handler(req, res) {
     await redisSet('agreementByEvent:' + agreement.eventId, JSON.stringify({ token, status: 'signed', signedAt, clientEmail: agreement.clientEmail }));
 
     // Notify company
-    if (RESEND_API_KEY && RESEND_FROM_EMAIL) {
+    if (GMAIL_USER && GMAIL_APP_PASSWORD) {
       const row = (label, val) => val ? `<tr><td style="padding:4px 12px 4px 0;color:#777;width:120px;">${label}</td><td>${val}</td></tr>` : '';
       const notifHtml = `<html><body style="font-family:Arial,sans-serif;padding:24px;"><h2 style="color:#1b5e20;">✅ Entente signée</h2>
 <p>Le client <strong>${agreement.clientName || agreement.clientEmail}</strong> a accepté l’entente de service.</p>
 <table style="border-collapse:collapse;margin-top:16px;">
 ${row('Client', agreement.clientName)}${row('Adresse', agreement.address)}${row('Date prévue', agreement.date)}${row('Travaux', agreement.jobDesc)}${row('Courriel', agreement.clientEmail)}${row('Signé le', new Date(signedAt).toLocaleString('fr-CA'))}${row('Adresse IP', ip)}
 </table></body></html>`;
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: RESEND_FROM_NAME + ' <' + RESEND_FROM_EMAIL + '>',
-          to: ['info@plomberierevolution.ca'],
-          subject: '✅ Entente signée – ' + (agreement.clientName || agreement.clientEmail),
-          html: notifHtml
-        })
-      });
+      const t1 = nodemailer.createTransport({ service: 'gmail', auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD } });
+      await t1.sendMail({ from: FROM_NAME + ' <' + GMAIL_USER + '>', to: 'info@plomberierevolution.ca', subject: '✅ Entente signée – ' + (agreement.clientName || agreement.clientEmail), html: notifHtml });
     }
 
     // Send confirmation email to client
-    if (RESEND_API_KEY && RESEND_FROM_EMAIL && agreement.clientEmail) {
+    if (GMAIL_USER && GMAIL_APP_PASSWORD && agreement.clientEmail) {
       const signedDate = new Date(signedAt).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
       const clientHtml = `<html><body style="font-family:Arial,sans-serif;background:#f0f4f8;padding:32px;">
 <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
@@ -212,16 +205,8 @@ ${row('Client', agreement.clientName)}${row('Adresse', agreement.address)}${row(
   </div>
   <div style="background:#f5f5f5;padding:14px 32px;text-align:center;font-size:11px;color:#999;border-top:1px solid #e0e0e0;">Révolution Plomberie Inc. • info@plomberierevolution.ca</div>
 </div></body></html>`;
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: RESEND_FROM_NAME + ' <' + RESEND_FROM_EMAIL + '>',
-          to: [agreement.clientEmail],
-          subject: '✅ Confirmation d’acceptation – Entente de service Révolution Plomberie',
-          html: clientHtml
-        })
-      });
+      const t2 = nodemailer.createTransport({ service: 'gmail', auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD } });
+      await t2.sendMail({ from: FROM_NAME + ' <' + GMAIL_USER + '>', to: agreement.clientEmail, subject: '✅ Confirmation d’acceptation – Entente de service Révolution Plomberie', html: clientHtml });
     }
     return res.status(200).json({ ok: true, signedAt });
   } catch (e) { return res.status(500).json({ error: e.message }); }
