@@ -144,7 +144,7 @@ function SigningPage({ token }) {
   const [info, setInfo] = React.useState({});
   const [errorMsg, setErrorMsg] = React.useState('');
   React.useEffect(() => {
-    fetch('/api/sign-agreement?token=' + token)
+    fetch('/api/sign-agreement?token=' + token + '&check=1')
       .then(r => r.json())
       .then(d => {
         if (d.error) { setStatus('error'); setErrorMsg(d.error); }
