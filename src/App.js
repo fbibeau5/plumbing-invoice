@@ -141,42 +141,38 @@ const THEMES = {
 
 function SigningPage({ token }) {
   const [status, setStatus] = React.useState('loading');
+  const [info, setInfo] = React.useState({});
   const [errorMsg, setErrorMsg] = React.useState('');
   React.useEffect(() => {
-    fetch('/api/sign-agreement?token=' + token).then(function(r){return r.json();}).then(function(d){
-      if (d.error) { setStatus('error'); setErrorMsg(d.error); }
-      else if (d.status === 'signed') setStatus('signed');
-      else setStatus('pending');
-    }).catch(function(e){ setStatus('error'); setErrorMsg(e.message); });
+    fetch('/api/sign-agreement?token=' + token)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { setStatus('error'); setErrorMsg(d.error); }
+        else { setInfo(d); if (d.status === 'signed') setStatus('signed'); else setStatus('pending'); }
+      }).catch(e => { setStatus('error'); setErrorMsg(e.message); });
   }, [token]);
-  async function handleSign() {
+  const handleSign = () => {
     setStatus('signing');
-    try {
-      const r = await fetch('/api/sign-agreement', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
-      const d = await r.json();
-      if (d.ok) setStatus('signed');
-      else { setStatus('pending'); setErrorMsg(d.error || 'Erreur'); }
-    } catch(e) { setStatus('pending'); setErrorMsg(e.message); }
-  }
-  if (status === 'loading') return React.createElement('div', {style:{textAlign:'center',padding:40}}, 'Chargement...');
-  if (status === 'error') return React.createElement('div', {style:{textAlign:'center',padding:40,color:'red'}}, '\u00c9chec: ', errorMsg);
-  if (status === 'signed') return React.createElement('div', {style:{textAlign:'center',padding:40,background:'#f1f8e9',borderRadius:12}},
-    React.createElement('h2', {style:{color:'#2e7d32'}}, 'Entente sign\u00e9e'),
-    React.createElement('p', null, 'Merci. Votre confirmation a \u00e9t\u00e9 re\u00e7ue.')
-  );
-  return React.createElement('div', {style:{maxWidth:500,margin:'40px auto',padding:20,fontFamily:'Arial,sans-serif'}},
-    React.createElement('h2', null, 'Entente de service'),
-    React.createElement('p', null, 'Veuillez lire et confirmer l\'entente de service ci-dessous.'),
-    React.createElement('div', {style:{background:'#f5f5f5',padding:16,borderRadius:8,marginBottom:16,fontSize:14,lineHeight:1.6}},
-      React.createElement('p', null, 'En cliquant sur "Accepter et signer", vous confirmez avoir lu et accept\u00e9 les termes de l\'entente de service de Plomberie R\u00e9volution.')
-    ),
-    status === 'signing'
-      ? React.createElement('button', {disabled:true, style:{padding:'12px 24px',background:'#aaa',color:'white',border:'none',borderRadius:8,fontSize:16}}, 'Signature en cours...')
-      : React.createElement('button', {onClick:handleSign, style:{padding:'12px 24px',background:'#1565c0',color:'white',border:'none',borderRadius:8,fontSize:16,cursor:'pointer'}}, 'Accepter et signer'),
-    errorMsg && React.createElement('p', {style:{color:'red',marginTop:8}}, errorMsg)
+    fetch('/api/sign-agreement', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({token}) })
+      .then(r => r.json())
+      .then(d => { if (d.ok) setStatus('signed'); else { setStatus('pending'); setErrorMsg(d.error || 'Erreur'); } })
+      .catch(e => { setStatus('pending'); setErrorMsg(e.message); });
+  };
+  const box = { maxWidth:480,margin:'60px auto',padding:32,borderRadius:12,boxShadow:'0 2px 16px rgba(0,0,0,0.12)',fontFamily:'sans-serif',background:'#fff' };
+  const ce = React.createElement;
+  if (status === 'loading') return ce('div', {style:box}, ce('p', null, 'Chargement...'));
+  if (status === 'error') return ce('div', {style:box}, ce('h2', {style:{color:'#c62828'}}, 'Erreur'), ce('p', null, errorMsg));
+  if (status === 'signed') return ce('div', {style:box}, ce('h2', {style:{color:'#2e7d32'}}, '\u2705 Entente sign\u00e9e'), ce('p', null, 'Merci! Votre accord a \u00e9t\u00e9 enregistr\u00e9.'));
+  return ce('div', {style:box},
+    ce('h2', {style:{marginBottom:8}}, 'Entente de service'),
+    ce('p', null, 'Client: ' + (info.clientName || '')),
+    ce('p', null, 'Adresse: ' + (info.address || '')),
+    ce('p', null, 'Date: ' + (info.date || '')),
+    ce('p', {style:{marginBottom:16}}, 'Travaux: ' + (info.jobDesc || '')),
+    ce('p', {style:{fontSize:13,color:'#555',marginBottom:16}}, 'En cliquant sur Accepter, vous confirmez avoir lu et accept\u00e9 les conditions.'),
+    ce('button', {onClick: status==='signing'?null:handleSign, disabled: status==='signing', style:{padding:'12px 28px',background:'#1565c0',color:'white',border:'none',borderRadius:8,fontSize:16,cursor:'pointer',fontWeight:700}}, status==='signing' ? 'Signature...' : 'Accepter l\u0027entente de service')
   );
 }
-
 export default function App() {
   const [tab, setTab] = useState("parse");
   const [notesText, setNotesText] = useState(() => localStorage.getItem('notesText') ?? SAMPLE_NOTES);
@@ -230,7 +226,13 @@ export default function App() {
   const [sigCanvasRef] = useState({ current: null });
   const [reminderSending, setReminderSending] = useState({}); // { [eventId]: 'sending'|'ok'|'err' }
 
+  // ── SAGE ACCOUNTING STATE ──────────────────────────────────────────────────
+  const [sageConnected, setSageConnected] = useState(false);
+  const [sageExpired, setSageExpired] = useState(false);
+  const [sageLastSync, setSageLastSync] = useState(null);
   const [agreementMap, setAgreementMap] = React.useState(() => { try { return JSON.parse(localStorage.getItem('agreementMap') || '{}'); } catch(_) { return {}; } });
+  const [sageSyncResult, setSageSyncResult] = useState(null); // résultat dernière sync
+  const [sageNotif, setSageNotif] = useState(null); // message de notification
 
   const subtotalBase = invoiceItems.reduce((s, i) => s + i.qty * i.product.sell, 0);
   const bonusAmount = subtotalBase * margeBonus;
@@ -249,26 +251,8 @@ export default function App() {
     localStorage.setItem('categoryMargins', JSON.stringify(updated));
   };
 
-  async function sendAgreement(ev) {
-    const email = window.prompt('Courriel du client:');
-    if (!email) return;
-    if (!email.includes('@')) { alert('Courriel invalide'); return; }
-    try {
-      const r = await fetch('/api/send-agreement', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId: ev.id, clientName: ev.clientName || '', address: ev.address || '', date: ev.date || '', jobDesc: ev.notes || ev.title || '', clientEmail: email }) });
-      const d = await r.json();
-      if (d.ok) { const upd = { ...agreementMap, [ev.id]: { token: d.token, status: 'pending', email, sentAt: new Date().toISOString() } }; setAgreementMap(upd); try { localStorage.setItem('agreementMap', JSON.stringify(upd)); } catch(_e) {} alert('Entente envoy\u00e9e \u00e0 ' + email); }
-      else { alert('Erreur: ' + (d.error || 'Inconnue')); }
-    } catch(err) { alert('Erreur r\u00e9seau: ' + err.message); }
-  }
-  async function checkAgreementStatus(eventId) {
-    const ag = agreementMap[eventId];
-    if (!ag || !ag.token || ag.status === 'signed') return;
-    try {
-      const r = await fetch('/api/sign-agreement?token=' + ag.token);
-      const d = await r.json();
-      if (d.status === 'signed') { const upd = { ...agreementMap, [eventId]: { ...ag, status: 'signed', signedAt: d.signedAt } }; setAgreementMap(upd); try { localStorage.setItem('agreementMap', JSON.stringify(upd)); } catch(_e) {} }
-    } catch(_) {}
-  }
+  async function sendAgreement(ev) { const email = window.prompt('Courriel du client:'); if (!email) return; if (!email.includes('@')) { alert('Courriel invalide'); return; } try { const r = await fetch('/api/send-agreement', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId: ev.id, clientName: ev.clientName || '', address: ev.address || '', date: ev.date || '', jobDesc: ev.notes || ev.title || '', clientEmail: email }) }); const d = await r.json(); if (d.ok) { const upd = { ...agreementMap, [ev.id]: { token: d.token, status: 'pending', email, sentAt: new Date().toISOString() } }; setAgreementMap(upd); try { localStorage.setItem('agreementMap', JSON.stringify(upd)); } catch(_e) {} alert('Entente envoy\u00e9e \u00e0 ' + email); } else { alert('Erreur: ' + (d.error || 'Inconnue')); } } catch(err) { alert('Erreur r\u00e9seau: ' + err.message); } }
+  async function checkAgreementStatus(eventId) { const ag = agreementMap[eventId]; if (!ag || !ag.token || ag.status === 'signed') return; try { const r = await fetch('/api/sign-agreement?token=' + ag.token); const d = await r.json(); if (d.status === 'signed') { const upd = { ...agreementMap, [eventId]: { ...ag, status: 'signed', signedAt: d.signedAt } }; setAgreementMap(upd); try { localStorage.setItem('agreementMap', JSON.stringify(upd)); } catch(_e) {} } } catch(_) {} }
 
   const saveToHistory = (items, client, job, num, bonus = 0) => {
     if (!items || items.length === 0) return;
@@ -797,6 +781,61 @@ export default function App() {
     return () => { clearInterval(interval); if (scheduleRetryRef.current) clearTimeout(scheduleRetryRef.current); };
   }, [syncSchedule]);
 
+  // ── SAGE : vérifier statut au chargement + gérer params URL ──────────────
+  useEffect(() => {
+    // Gérer les redirections OAuth Sage
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('sage_connected') === 'true') {
+      setSageNotif({ type: 'ok', msg: '✅ Sage Accounting connecté avec succès !' });
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => setSageNotif(null), 5000);
+    }
+    if (params.get('sage_error')) {
+      setSageNotif({ type: 'err', msg: '❌ Erreur Sage : ' + params.get('sage_error') });
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => setSageNotif(null), 8000);
+    }
+    // Vérifier statut de connexion
+    fetch('/api/sage-status')
+      .then(r => r.json())
+      .then(d => {
+        setSageConnected(!!d.connected);
+        setSageExpired(!!d.expired);
+        setSageLastSync(d.lastSync || null);
+      })
+      .catch(() => {});
+  }, []);
+
+  const runSageSync = async (action) => {
+    setSageSyncing(action);
+    setSageSyncResult(null);
+    try {
+      const res = await fetch('/api/sage-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setSageSyncResult({ ok: true, action, data });
+        setSageLastSync({ at: new Date().toISOString(), direction: action, ...data });
+        if (action === 'pull' || action === 'full') {
+          // Recharger l'historique depuis Redis
+          fetch('/api/history-data')
+            .then(r => r.json())
+            .then(d => { if (Array.isArray(d)) { setListHistory(d); localStorage.setItem('listHistory', JSON.stringify(d)); } })
+            .catch(() => {});
+        }
+      } else {
+        setSageSyncResult({ ok: false, action, error: data.error || 'Erreur inconnue' });
+      }
+    } catch (e) {
+      setSageSyncResult({ ok: false, action, error: e.message });
+    } finally {
+      setSageSyncing(null);
+    }
+  };
+
   const sortEvs = arr => [...arr].sort((a,b) => new Date(a.date+'T'+(a.time||'00:00')) - new Date(b.date+'T'+(b.time||'00:00')));
 
   const addScheduleEvent = (formData) => {
@@ -941,6 +980,7 @@ export default function App() {
       { id: 'catalog',  icon: '🗂️', label: 'Catalogue' },
       { id: 'history',  icon: '🕐', label: 'Historique' },
       { id: 'margins',  icon: '📊', label: 'Marges' },
+      { id: 'sage',     icon: '🟢', label: 'Sage' },
     ];
   const _signToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('sign') : null;
   if (_signToken) return React.createElement(SigningPage, { token: _signToken });
@@ -1449,7 +1489,6 @@ export default function App() {
                     );
                   })}
                 </div>
-              )}
             </div>
           )}
 
@@ -1478,6 +1517,46 @@ export default function App() {
             );
           })()}
 
+          {/* SAGE TAB - mobile */}
+          {tab === 'sage' && (
+            <div>
+              {/* Notification */}
+              {sageNotif && (
+                <div style={{ background: sageNotif.type === 'ok' ? '#16a34a22' : '#c0392b22', border: `1px solid ${sageNotif.type === 'ok' ? '#16a34a' : '#c0392b'}`, borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: sageNotif.type === 'ok' ? '#16a34a' : '#c0392b', fontWeight: 600 }}>
+                  {sageNotif.msg}
+                </div>
+              )}
+              {/* Statut connexion */}
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: '50%', background: sageConnected ? '#16a34a' : '#c0392b', display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
+                    {sageConnected ? (sageExpired ? '⚠️ Token expiré' : '✅ Connecté à Sage') : '🔴 Non connecté'}
+                  </span>
+                </div>
+                {sageLastSync && (
+                  <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>
+                    Dernière sync : {new Date(sageLastSync.at).toLocaleString('fr-CA')}
+                    {sageLastSync.pushed != null && ` — ${sageLastSync.pushed} factures envoyées`}
+                    {sageLastSync.imported != null && ` — ${sageLastSync.imported} importées`}
+                  </div>
+                )}
+                {!sageConnected || sageExpired ? (
+                  <a href="/api/sage-auth" style={{ display: 'block', marginTop: 10, padding: '12px 0', background: '#1a6bb5', border: 'none', borderRadius: 8, color: 'white', fontSize: 14, fontWeight: 700, textAlign: 'center', textDecoration: 'none', cursor: 'pointer' }}>
+                    🔗 {sageExpired ? 'Reconnecter Sage' : 'Connecter Sage Accounting'}
+                  </a>
+                ) : null}
+              </div>
+              {/* Boutons sync */}
+              {/* Résultat sync */}
+              {/* Info */}
+              <div style={{ marginTop: 16, fontSize: 11, color: C.textMuted, lineHeight: 1.6 }}>
+                <strong>Push :</strong> envoie vos factures de l'app vers Sage (seulement les nouvelles).<br/>
+                <strong>Pull :</strong> importe les factures de Sage dans votre historique.<br/>
+                <strong>Sync complète :</strong> fait les deux en même temps.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* MODALS HORAIRE - mobile */}
@@ -1508,7 +1587,7 @@ export default function App() {
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
           <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ height: 44, filter: 'brightness(0) invert(1)', display: 'block' }} />
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["schedule", `📅 Horaire (${listSchedule.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"]].map(([id, label]) => (
+            {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["schedule", `📅 Horaire (${listSchedule.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"], ["sage", `🟢 Sage${sageConnected ? ' ✓' : ''}`]].map(([id, label]) => (
               <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); if (id === 'catalog') syncCatalog(); if (id === 'schedule') syncSchedule(); }} style={{
                 padding: "8px 18px", background: tab === id ? C.accent : "rgba(255,255,255,0.1)",
                 border: `1px solid ${tab === id ? C.accent : "rgba(255,255,255,0.2)"}`,
@@ -2248,6 +2327,51 @@ export default function App() {
           );
         })()}
 
+        {/* SAGE TAB - desktop */}
+        {tab === "sage" && (
+          <div style={{ maxWidth: 640 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1.5, color: C.accent, marginBottom: 20, textTransform: "uppercase" }}>Sage Business Cloud Accounting — Synchronisation</div>
+
+            {/* Notification */}
+            {sageNotif && (
+              <div style={{ background: sageNotif.type === 'ok' ? '#16a34a22' : '#c0392b22', border: `1px solid ${sageNotif.type === 'ok' ? '#16a34a' : '#c0392b'}`, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: sageNotif.type === 'ok' ? '#16a34a' : '#c0392b', fontWeight: 600 }}>
+                {sageNotif.msg}
+              </div>
+            )}
+
+            {/* Statut */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 24, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.07)" }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <span style={{ width: 14, height: 14, borderRadius: '50%', background: sageConnected ? '#16a34a' : '#c0392b', display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>
+                  {sageConnected ? (sageExpired ? '⚠️ Connexion expirée — reconnexion requise' : '✅ Connecté à Sage Accounting') : '🔴 Non connecté à Sage Accounting'}
+                </span>
+              </div>
+              {sageLastSync && (
+                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
+                  Dernière synchronisation : <strong>{new Date(sageLastSync.at).toLocaleString('fr-CA')}</strong>
+                  {sageLastSync.pushed != null && <span> · {sageLastSync.pushed} facture(s) envoyée(s)</span>}
+                  {sageLastSync.imported != null && <span> · {sageLastSync.imported} facture(s) importée(s)</span>}
+                </div>
+              )}
+              {(!sageConnected || sageExpired) && (
+                <a href="/api/sage-auth" style={{ display: 'inline-block', padding: '10px 24px', background: '#1a6bb5', borderRadius: 8, color: 'white', fontSize: 14, fontWeight: 700, textDecoration: 'none', marginTop: 4 }}>
+                  🔗 {sageExpired ? 'Reconnecter Sage' : 'Connecter Sage Accounting'}
+                </a>
+              )}
+            </div>
+
+            {/* Boutons sync */}
+
+            {/* Explication */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 20, fontSize: 12, color: C.textMuted, lineHeight: 1.7 }}>
+              <div style={{ fontWeight: 700, color: C.text, marginBottom: 8 }}>Comment ça fonctionne</div>
+              <div><strong>📤 Envoyer → Sage :</strong> Envoie toutes les factures de votre historique vers Sage en tant que factures de vente. Crée automatiquement les contacts clients. Les factures déjà envoyées sont ignorées.</div>
+              <div style={{ marginTop: 6 }}><strong>📥 Importer ← Sage :</strong> Importe les factures de vente de Sage dans votre historique. Les nouvelles factures Sage apparaissent dans l'onglet Historique.</div>
+              <div style={{ marginTop: 6 }}><strong>🔄 Sync complète :</strong> Effectue l'envoi et l'import en même temps pour une synchronisation bidirectionnelle complète.</div>
+            </div>
+          </div>
+        )}
 
       </div>{/* fin content maxWidth:1200 */}
       {/* MODALS HORAIRE - desktop */}
