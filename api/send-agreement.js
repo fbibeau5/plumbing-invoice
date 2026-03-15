@@ -47,9 +47,9 @@ function generateEmailHtml(ag, signingUrl) {
     clausesHtml +
     '</div>' +
     '<div style="background:#f5f5f5;padding:30px 40px;text-align:center;border-top:2px solid #e0e0e0;">' +
-    '<p style="color:#333;font-size:15px;margin:0 0 18px 0;font-weight:700;">Veuillez lire et signer l'entente ci-dessous</p>' +
+    '<p style="color:#333;font-size:15px;margin:0 0 18px 0;font-weight:700;">Veuillez lire et signer l&#39;entente ci-dessous</p>' +
     '<p style="color:#666;font-size:13px;margin:0 0 20px 0;">En cliquant sur le bouton, vous acceptez les termes et conditions de cette entente de service.</p>' +
-    '<a href="' + signingUrl + '" style="display:inline-block;background:#0d47a1;color:#fff;padding:16px 40px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:700;letter-spacing:0.5px;">✍️ Signer l'entente</a>' +
+    '<a href="' + signingUrl + '" style="display:inline-block;background:#0d47a1;color:#fff;padding:16px 40px;border-radius:8px;text-decoration:none;font-size:16px;font-weight:700;letter-spacing:0.5px;">✍️ Signer l&#39;entente</a>' +
     '<p style="color:#aaa;font-size:11px;margin:18px 0 0 0;">Ce lien est à usage unique. | Plomberie Révolution Inc. | info@plomberierevolution.ca</p>' +
     '</div></div></body></html>';
 }
