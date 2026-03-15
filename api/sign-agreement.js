@@ -184,6 +184,43 @@ ${row('Client', agreement.clientName)}${row('Adresse', agreement.address)}${row(
         })
       });
     }
+
+    // Send confirmation email to client
+    if (RESEND_API_KEY && RESEND_FROM_EMAIL && agreement.clientEmail) {
+      const signedDate = new Date(signedAt).toLocaleDateString('fr-CA', {year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      const clientHtml = `<html><body style="font-family:Arial,sans-serif;background:#f0f4f8;padding:32px;">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+  <div style="background:#1b5e20;padding:28px 32px;color:#fff;">
+    <div style="font-size:36px;margin-bottom:8px;">✅</div>
+    <h1 style="font-size:20px;margin:0 0 4px 0;font-weight:700;">Confirmation d’acceptation</h1>
+    <p style="font-size:13px;margin:0;opacity:0.85;">Entente de service – Révolution Plomberie Inc.</p>
+  </div>
+  <div style="padding:28px 32px;">
+    <p style="color:#333;font-size:15px;margin:0 0 20px 0;">Bonjour <strong>${agreement.clientName || 'Client'}</strong>,</p>
+    <p style="color:#444;font-size:14px;line-height:1.7;margin:0 0 20px 0;">Votre acceptation de l’entente de service de <strong>Révolution Plomberie Inc.</strong> a bien été enregistrée. Veuillez conserver ce courriel comme preuve de votre acceptation.</p>
+    <div style="background:#f5f5f5;border-radius:8px;padding:16px 20px;margin-bottom:20px;">
+      <table style="border-collapse:collapse;width:100%;">
+        <tr><td style="padding:5px 12px 5px 0;color:#777;font-size:13px;width:140px;">Date d’acceptation</td><td style="font-size:13px;color:#222;font-weight:600;">${signedDate}</td></tr>
+        ${agreement.clientName ? '<tr><td style="padding:5px 12px 5px 0;color:#777;font-size:13px;">Client</td><td style="font-size:13px;color:#222;">' + agreement.clientName + '</td></tr>' : ''}
+        ${agreement.address ? '<tr><td style="padding:5px 12px 5px 0;color:#777;font-size:13px;">Adresse</td><td style="font-size:13px;color:#222;">' + agreement.address + '</td></tr>' : ''}
+        ${agreement.date ? '<tr><td style="padding:5px 12px 5px 0;color:#777;font-size:13px;">Date prévue</td><td style="font-size:13px;color:#222;">' + agreement.date + '</td></tr>' : ''}
+      </table>
+    </div>
+    <p style="color:#666;font-size:13px;line-height:1.6;">Pour toute question, n’hésitez pas à nous contacter au <strong>info@plomberierevolution.ca</strong>.</p>
+  </div>
+  <div style="background:#f5f5f5;padding:14px 32px;text-align:center;font-size:11px;color:#999;border-top:1px solid #e0e0e0;">Révolution Plomberie Inc. • info@plomberierevolution.ca</div>
+</div></body></html>`;
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: RESEND_FROM_NAME + ' <' + RESEND_FROM_EMAIL + '>',
+          to: [agreement.clientEmail],
+          subject: '✅ Confirmation d’acceptation – Entente de service Révolution Plomberie',
+          html: clientHtml
+        })
+      });
+    }
     return res.status(200).json({ ok: true, signedAt });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 }
