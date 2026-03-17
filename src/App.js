@@ -1080,7 +1080,7 @@ export default function App() {
               </div>
 
               {/* Marge bonus buttons - visible app seulement */}
-              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+              <div className="no-print" style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>📈 Bonification de marge (interne)</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {[0, 5, 10, 15, 20].map(pct => (
@@ -1096,7 +1096,7 @@ export default function App() {
               </div>
 
               {/* Action buttons */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <button onClick={() => setTab('catalog')} style={{ padding: 15, background: C.inputBg, border: `1px solid ${C.border}`, borderRadius: 10, color: C.textMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 600 }}>
                   + Ajouter depuis catalogue
                 </button>
