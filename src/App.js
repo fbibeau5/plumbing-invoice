@@ -190,6 +190,14 @@ function SigningPage({ token }) {
 }
 export default function App() {
   const [tab, setTab] = useState("parse");
+  const [categoryOverrides, setCategoryOverrides] = useState(() => { try { return JSON.parse(localStorage.getItem('catOverrides') || '{}'); } catch(e) { return {}; } });
+  const [customCategories, setCustomCategories] = useState(() => { try { return JSON.parse(localStorage.getItem('customCats') || '[]'); } catch(e) { return []; } });
+  const [editingCategoryFor, setEditingCategoryFor] = useState(null);
+  const [showNewCatForm, setShowNewCatForm] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#7c3aed');
+  const [rapportData, setRapportData] = useState(null);
+  const [rapportLoading, setRapportLoading] = useState(false);
   const [notesText, setNotesText] = useState(() => localStorage.getItem('notesText') ?? SAMPLE_NOTES);
   useEffect(() => { localStorage.setItem('notesText', notesText); }, [notesText]);
   const [invoiceItems, setInvoiceItems] = useState([]);
@@ -518,6 +526,20 @@ export default function App() {
     const matchSearch = !searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase()) || String(p.code).includes(searchTerm);
     return matchCat && matchSearch;
   });
+
+  // Load rapport data when rapport tab is selected
+  useEffect(() => {
+    if (tab !== 'rapport') return;
+    setRapportLoading(true);
+    const now = new Date();
+    const jan1 = new Date(now.getFullYear(), 0, 1);
+    const week = Math.ceil(((now - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+    const wKey = 'report_' + now.getFullYear() + '_' + String(week).padStart(2, '0');
+    fetch('/api/report-data?key=' + wKey, { method: 'GET' })
+      .then(r => r.json())
+      .then(d => { setRapportData(d || null); setRapportLoading(false); })
+      .catch(() => { setRapportData(null); setRapportLoading(false); });
+  }, [tab]);
 
   const saveToWeeklyReport = async () => {
     if (invoiceItems.length === 0) return;
@@ -950,6 +972,7 @@ export default function App() {
       { id: 'catalog',  icon: '🗂️', label: 'Catalogue' },
       { id: 'history',  icon: '🕐', label: 'Historique' },
       { id: 'margins',  icon: '📊', label: 'Marges' },
+      { id: 'rapport',  icon: '📋', label: 'Rapport' },
     ];
   const _signToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('sign') : null;
   if (_signToken) return React.createElement(SigningPage, { token: _signToken });
@@ -1249,6 +1272,20 @@ export default function App() {
                             {isCustom && <span style={{ fontSize: 9, background: C.accent, color: 'white', borderRadius: 3, padding: '1px 5px', marginLeft: 6, fontWeight: 700 }}>CUSTOM</span>}
                           </div>
                           <div style={{ fontSize: 11, color: C.textMuted }}>#{p.code} · {p.dim}</div>
+                          <div style={{ marginTop: 4, position: 'relative' }}>
+                            <span onClick={() => setEditingCategoryFor(editingCategoryFor === p.code ? null : p.code)} style={{ cursor: 'pointer', color: 'white', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: CAT_COLORS[categoryOverrides[p.code] || p.category] || '#7c3aed', whiteSpace: 'nowrap' }}>
+                              {categoryOverrides[p.code] || p.category}
+                            </span>
+                            {editingCategoryFor === p.code && (
+                              <div style={{ position: 'fixed', zIndex: 300, background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 210 }}>
+                                <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 6, padding: '0 4px' }}>Choisir une catégorie</div>
+                                {[...Object.keys(CAT_COLORS), ...customCategories.map(cc => cc.name)].map(cat => (
+                                  <div key={cat} onClick={(e) => { e.stopPropagation(); const upd = { ...categoryOverrides, [p.code]: cat }; setCategoryOverrides(upd); localStorage.setItem('catOverrides', JSON.stringify(upd)); setEditingCategoryFor(null); }} style={{ cursor: 'pointer', padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, color: CAT_COLORS[cat] || (customCategories.find(cc => cc.name === cat) || {}).color || '#7c3aed' }}>{cat}</div>
+                                ))}
+                                <div onClick={(e) => { e.stopPropagation(); setShowNewCatForm(true); setEditingCategoryFor(null); }} style={{ cursor: 'pointer', padding: '5px 10px', fontSize: 11, color: '#94a3b8', borderTop: '1px solid #334155', marginTop: 4 }}>+ Nouvelle catégorie...</div>
+                              </div>
+                            )}
+                          </div>
                           <div style={{ fontSize: 11, color: C.textLight }}>coût: {fmt(p.cost)}</div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
@@ -1494,6 +1531,79 @@ export default function App() {
         {/* MODALS HORAIRE - mobile */}
         {showEvForm && <EventFormModal C={C} evForm={evForm} setEvForm={setEvForm} editingEvId={editingEvId} saveEventForm={saveEventForm} onClose={()=>{setShowEvForm(false);setEditingEvId(null);setEvForm(EMPTY_EV_FORM);}} />}
         {sigState.eventId && <SigPadModal C={C} sigState={sigState} event={listSchedule.find(e=>e.id===sigState.eventId)} onClose={()=>setSigState(EMPTY_SIG_STATE)} onSave={(canvasEl)=>saveSig(canvasEl,sigState.eventId)} sigCanvasRef={sigCanvasRef} startSig={startSig} />}
+
+        {/* CATEGORY DROPDOWN CLOSE - click outside */}
+        {editingCategoryFor !== null && <div onClick={() => setEditingCategoryFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 299 }} />}
+
+        {/* NEW CATEGORY MODAL */}
+        {showNewCatForm && (
+          <div onClick={() => setShowNewCatForm(false)} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: '#1e293b', borderRadius: 14, padding: 28, minWidth: 320, border: '1px solid #334155' }}>
+              <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 20, color: '#f1f5f9' }}>Nouvelle catégorie</div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>Nom</div>
+                <input value={newCatName} onChange={e => setNewCatName(e.target.value.toUpperCase())} placeholder="EX: NOUVEAU TYPE" style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #334155', background: '#0f172a', color: '#f1f5f9', fontSize: 14, boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>Couleur</div>
+                <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} style={{ width: 48, height: 36, border: '2px solid #334155', borderRadius: 6, cursor: 'pointer', background: 'none' }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: newCatColor }}>{newCatName || 'EXEMPLE'}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => { if (!newCatName.trim()) return; const upd = [...customCategories, { name: newCatName.trim(), color: newCatColor }]; setCustomCategories(upd); localStorage.setItem('customCats', JSON.stringify(upd)); setNewCatName(''); setShowNewCatForm(false); }} style={{ flex: 1, padding: '10px', borderRadius: 8, background: '#7c3aed', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700 }}>Créer</button>
+                <button onClick={() => setShowNewCatForm(false)} style={{ flex: 1, padding: '10px', borderRadius: 8, background: 'transparent', color: '#94a3b8', border: '1px solid #334155', cursor: 'pointer' }}>Annuler</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RAPPORT TAB */}
+        {tab === 'rapport' && (
+          <div style={{ padding: '20px 16px', maxWidth: 700, margin: '0 auto' }}>
+            <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 6, color: '#f1f5f9' }}>Rapport hebdomadaire</div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 20 }}>Consultez le rapport de la semaine courante</div>
+            {rapportLoading && <div style={{ color: '#94a3b8', textAlign: 'center', padding: 40 }}>Chargement...</div>}
+            {!rapportLoading && rapportData && rapportData.items && rapportData.items.length > 0 && (
+              <div>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 140, background: '#0f172a', borderRadius: 10, padding: 16, border: '1px solid #334155' }}>
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>FACTURES</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: '#f1f5f9' }}>{rapportData.items.length}</div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 140, background: '#0f172a', borderRadius: 10, padding: 16, border: '1px solid #334155' }}>
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>TOTAL HT</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: '#10b981' }}>{rapportData.items.reduce((s, inv) => s + (inv.subtotal || 0), 0).toFixed(2)} $</div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 140, background: '#0f172a', borderRadius: 10, padding: 16, border: '1px solid #334155' }}>
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>TOTAL TTC</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: '#3b82f6' }}>{rapportData.items.reduce((s, inv) => s + (inv.total || 0), 0).toFixed(2)} $</div>
+                  </div>
+                </div>
+                <div style={{ background: '#0f172a', borderRadius: 10, border: '1px solid #334155', overflow: 'hidden' }}>
+                  {rapportData.items.map((inv, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: i < rapportData.items.length - 1 ? '1px solid #1e293b' : 'none', gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, color: '#f1f5f9', fontSize: 14 }}>{inv.clientName || 'Client inconnu'}</div>
+                        <div style={{ fontSize: 11, color: '#64748b' }}>#{inv.invoiceNumber || inv.id} · {inv.date || ''}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 700, color: '#10b981', fontSize: 14 }}>{(inv.total || 0).toFixed(2)} $</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {!rapportLoading && (!rapportData || !rapportData.items || rapportData.items.length === 0) && (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#475569' }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>📋</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Aucune donnée cette semaine</div>
+                <div style={{ fontSize: 13 }}>Les factures enregistrées apparaîtront ici automatiquement.</div>
+              </div>
+            )}
+          </div>
+        )}
+
 
         {/* Bottom Nav */}
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.header, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', zIndex: 50, paddingBottom: 'env(safe-area-inset-bottom)' }}>
