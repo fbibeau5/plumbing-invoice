@@ -123,3 +123,96 @@ through the Claude in Chrome browser tool.
 - Check recent GitHub commits before making changes to understand current state.
 - Vercel function logs are the best place to debug API-side errors.
 - The Sage OAuth token is stored in Upstash Redis — check there if auth fails.
+
+---
+
+## UTF-8 Encoding Safety (CRITICAL — read before every App.js push)
+
+**Problem:** App.js contains French accented characters and emoji (é, è, à, →, ✅, etc.).
+Every time App.js is fetched via GitHub API, modified, and pushed back, there is risk
+of "double-encoding" corruption where multi-byte UTF-8 sequences get stored as individual
+characters (Mojibake). This has corrupted the file multiple times.
+
+### Mandatory encode/decode procedure
+
+**Fetching (decode):**
+```javascript
+const b64 = data.content.replace(/\n/g, '');
+const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+const content = new TextDecoder('utf-8').decode(bytes);  // ALWAYS use TextDecoder
+// NEVER use: atob(b64) directly as string — it misreads multi-byte chars
+```
+
+**Pushing (encode):**
+```javascript
+const bytes = new TextEncoder().encode(content);  // ALWAYS TextEncoder
+let binStr = '';
+for (let i = 0; i < bytes.length; i++) binStr += String.fromCharCode(bytes[i]);
+const encoded = btoa(binStr);
+// NEVER use: btoa(unescape(encodeURIComponent(content))) — unreliable
+```
+
+### Mandatory verification before every push
+
+After modifying content and BEFORE pushing, run this check:
+```javascript
+function hasMojibake(src) {
+  for (let i = 0; i < src.length - 1; i++) {
+    const c0 = src.charCodeAt(i), c1 = src.charCodeAt(i+1);
+    if (c0 >= 0xC2 && c0 <= 0xDF && c1 >= 0x80 && c1 <= 0xBF) return true;
+    if (c0 >= 0xE0 && c0 <= 0xEF && i+2 < src.length) {
+      const c2 = src.charCodeAt(i+2);
+      if (c1 >= 0x80 && c1 <= 0xBF && c2 >= 0x80 && c2 <= 0xBF) return true;
+    }
+  }
+  return false;
+}
+// If hasMojibake(content) === true → DO NOT PUSH, run fixMojibake first
+```
+
+### Full Mojibake fixer (use if hasMojibake returns true)
+
+```javascript
+function fixMojibake(src) {
+  let result = '', i = 0;
+  while (i < src.length) {
+    const c = src.charCodeAt(i);
+    // 4-byte (emoji)
+    if (c >= 0xF0 && c <= 0xF7 && i+3 < src.length) {
+      const [c1,c2,c3] = [src.charCodeAt(i+1),src.charCodeAt(i+2),src.charCodeAt(i+3)];
+      if (c1>=0x80&&c1<=0xBF&&c2>=0x80&&c2<=0xBF&&c3>=0x80&&c3<=0xBF) {
+        result += new TextDecoder('utf-8').decode(new Uint8Array([c,c1,c2,c3]));
+        i+=4; continue;
+      }
+    }
+    // 3-byte (arrows, symbols, box-drawing)
+    if (c >= 0xE0 && c <= 0xEF && i+2 < src.length) {
+      const [c1,c2] = [src.charCodeAt(i+1),src.charCodeAt(i+2)];
+      if (c1>=0x80&&c1<=0xBF&&c2>=0x80&&c2<=0xBF) {
+        result += new TextDecoder('utf-8').decode(new Uint8Array([c,c1,c2]));
+        i+=3; continue;
+      }
+    }
+    // [0xCD, x] — "+10 lead-byte shift" bug: correct char = U+00C0|(trail&0x3F)
+    if (c === 0xCD && i+1 < src.length) {
+      const c1 = src.charCodeAt(i+1);
+      if (c1>=0x80&&c1<=0xBF) { result += String.fromCodePoint(0xC0|(c1&0x3F)); i+=2; continue; }
+    }
+    // Regular 2-byte sequences
+    if (c >= 0xC2 && c <= 0xDF && i+1 < src.length) {
+      const c1 = src.charCodeAt(i+1);
+      if (c1>=0x80&&c1<=0xBF) {
+        result += new TextDecoder('utf-8').decode(new Uint8Array([c,c1]));
+        i+=2; continue;
+      }
+    }
+    result += src.charAt(i); i++;
+  }
+  return result;
+}
+```
+
+**Root cause of past corruption:** A previous fix script used `'Ã '` (with regular space)
+instead of `'Ã\u00A0'` (NBSP) to fix `à`, leaving some occurrences broken. A subsequent
+re-encode then shifted the lead byte from 0xC3 to 0xCD for those characters, creating
+a new type of Mojibake. Always use `fixMojibake()` + `hasMojibake()` as a safety net.
