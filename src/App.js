@@ -595,7 +595,7 @@ export default function App() {
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:Arial,sans-serif;padding:32px 36px;color:#1a1a1a;font-size:13px}
         .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:18px;border-bottom:3px solid #0c2240}
-        .top-logo img{height:80px;width:auto;display:block}
+        .top-logo img{height:240px;width:auto;display:block}
         .top-info{text-align:right}
         .top-info .facture-num{font-size:22px;font-weight:700;color:#0c2240;margin-bottom:4px}
         .top-info .date{font-size:12px;color:#888;margin-bottom:10px}
@@ -919,8 +919,8 @@ export default function App() {
   // ── LOGIN SCREEN ──────────────────────────────────────────────────────────
   if (!authed) return (
     <div style={{ minHeight: '100vh', background: '#0f1628', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui,-apple-system,sans-serif', position: 'relative' }}>
-      <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.22, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
-      <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '55vw', maxWidth: 520, opacity: 0.18, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
+      <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.45, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
+      <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '55vw', maxWidth: 520, opacity: 0.42, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
       <div style={{ position: 'relative', zIndex: 1, background: '#1e2a4a', border: '1px solid #2d3d6a', borderRadius: 16, padding: '40px 32px', width: '100%', maxWidth: 360, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ width: 140, margin: '0 auto 24px', display: 'block', filter: 'brightness(0) invert(1)' }} />
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 2, marginBottom: 32 }}>ACCÈS SÉCURISÉ</div>
@@ -955,12 +955,12 @@ export default function App() {
   if (_signToken) return React.createElement(SigningPage, { token: _signToken });
     return (
       <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui,-apple-system,sans-serif', color: C.text, paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
-        <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.14, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
-        <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '90vw', maxWidth: 420, opacity: 0.15, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
-        <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 90, right: 12, width: 130, height: 130, borderRadius: '50%', objectFit: 'cover', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }} />
+        <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.38, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
+        <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '90vw', maxWidth: 420, opacity: 0.40, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
+        <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 90, right: 12, width: 130, height: 130, borderRadius: '50%', objectFit: 'cover', opacity: 0.42, pointerEvents: 'none', zIndex: 0 }} />
         {/* Mobile Header */}
         <div style={{ background: C.header, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-          <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ height: 36, filter: 'brightness(0) invert(1)', display: 'block' }} />
+          <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ height: 108, filter: 'brightness(0) invert(1)', display: 'block' }} />
           <div className="no-print" style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setShowThemes(p => !p)} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 16 }}>🎨</button>
             <button onClick={() => setMobileView('desktop')} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>🖥️</button>
@@ -1511,13 +1511,13 @@ export default function App() {
   // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "system-ui, -apple-system, sans-serif", color: C.text }}>
-      <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.14, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
-      <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '45vw', maxWidth: 600, opacity: 0.15, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
-      <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 24, right: 24, width: 160, height: 160, borderRadius: '50%', objectFit: 'cover', opacity: 0.18, pointerEvents: 'none', zIndex: 0 }} />
+      <img src={process.env.PUBLIC_URL + '/bg-pipes.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', objectFit: 'cover', opacity: 0.38, pointerEvents: 'none', zIndex: 0, userSelect: 'none' }} />
+      <img src={process.env.PUBLIC_URL + '/logo.svg'} aria-hidden="true" alt="" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '45vw', maxWidth: 600, opacity: 0.40, pointerEvents: 'none', zIndex: 0, userSelect: 'none', filter: 'brightness(0) invert(1)' }} />
+      <img className="punch-bg" src={process.env.PUBLIC_URL + '/punch.jpg'} alt="" aria-hidden="true" style={{ position: 'fixed', bottom: 24, right: 24, width: 160, height: 160, borderRadius: '50%', objectFit: 'cover', opacity: 0.42, pointerEvents: 'none', zIndex: 0 }} />
       {/* Header */}
       <div style={{ background: C.header, padding: "0 24px", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
-          <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ height: 44, filter: 'brightness(0) invert(1)', display: 'block' }} />
+          <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ height: 132, filter: 'brightness(0) invert(1)', display: 'block' }} />
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["schedule", `📅 Horaire (${listSchedule.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"]].map(([id, label]) => (
               <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); if (id === 'catalog') syncCatalog(); if (id === 'schedule') syncSchedule(); }} style={{
