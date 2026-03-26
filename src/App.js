@@ -1276,15 +1276,6 @@ export default function App() {
                             <span onClick={() => setEditingCategoryFor(editingCategoryFor === p.code ? null : p.code)} style={{ cursor: 'pointer', color: 'white', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: CAT_COLORS[categoryOverrides[p.code] || p.category] || '#7c3aed', whiteSpace: 'nowrap' }}>
                               {categoryOverrides[p.code] || p.category}
                             </span>
-                            {editingCategoryFor === p.code && (
-                              <div style={{ position: 'fixed', zIndex: 300, background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 210, maxHeight: '60vh', overflowY: 'auto' }}>
-                                <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 6, padding: '0 4px' }}>Choisir une catégorie</div>
-                                {[...Object.keys(CAT_COLORS), ...customCategories.map(cc => cc.name)].map(cat => (
-                                  <div key={cat} onClick={(e) => { e.stopPropagation(); const upd = { ...categoryOverrides, [p.code]: cat }; setCategoryOverrides(upd); localStorage.setItem('catOverrides', JSON.stringify(upd)); setEditingCategoryFor(null); }} style={{ cursor: 'pointer', padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, color: CAT_COLORS[cat] || (customCategories.find(cc => cc.name === cat) || {}).color || '#7c3aed' }}>{cat}</div>
-                                ))}
-                                <div onClick={(e) => { e.stopPropagation(); setShowNewCatForm(true); setEditingCategoryFor(null); }} style={{ cursor: 'pointer', padding: '5px 10px', fontSize: 11, color: '#94a3b8', borderTop: '1px solid #334155', marginTop: 4 }}>+ Nouvelle catégorie...</div>
-                              </div>
-                            )}
                           </div>
                           <div style={{ fontSize: 11, color: C.textLight }}>coût: {fmt(p.cost)}</div>
                         </div>
@@ -1533,7 +1524,30 @@ export default function App() {
         {sigState.eventId && <SigPadModal C={C} sigState={sigState} event={listSchedule.find(e=>e.id===sigState.eventId)} onClose={()=>setSigState(EMPTY_SIG_STATE)} onSave={(canvasEl)=>saveSig(canvasEl,sigState.eventId)} sigCanvasRef={sigCanvasRef} startSig={startSig} />}
 
         {/* CATEGORY DROPDOWN CLOSE - click outside */}
-        {editingCategoryFor !== null && <div onClick={() => setEditingCategoryFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 299 }} />}
+        {/* Category bottom sheet - mobile */}
+    {editingCategoryFor !== null && (
+      <>
+        <div onClick={() => setEditingCategoryFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.5)' }} />
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 401, background: '#1e293b', borderRadius: '20px 20px 0 0', paddingBottom: 32 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: '#475569', margin: '12px auto 4px' }} />
+          <div style={{ fontSize: 12, color: '#94a3b8', padding: '12px 20px 8px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Catégorie</div>
+          <div style={{ maxHeight: '55vh', overflowY: 'auto' }}>
+            {[...Object.keys(CAT_COLORS), ...customCategories.map(cc => cc.name)].map(cat => (
+              <div key={cat} onClick={() => { const upd = { ...categoryOverrides, [editingCategoryFor]: cat }; setCategoryOverrides(upd); localStorage.setItem('catOverrides', JSON.stringify(upd)); setEditingCategoryFor(null); }}
+                style={{ padding: '14px 20px', fontSize: 15, fontWeight: 600,
+                  color: CAT_COLORS[cat] || (customCategories.find(cc => cc.name === cat) || {}).color || '#7c3aed',
+                  borderBottom: '1px solid #0f172a' }}>
+                {cat}
+              </div>
+            ))}
+            <div onClick={() => { setShowNewCatForm(true); setEditingCategoryFor(null); }}
+              style={{ padding: '14px 20px', fontSize: 15, color: '#94a3b8', borderTop: '1px solid #334155' }}>
+              + Nouvelle catégorie...
+            </div>
+          </div>
+        </div>
+      </>
+    )}
 
         {/* NEW CATEGORY MODAL */}
         {showNewCatForm && (
