@@ -1629,7 +1629,7 @@ export default function App() {
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
           <img src={process.env.PUBLIC_URL + '/logo.svg'} alt="Révolution Plomberie" style={{ height: 132, filter: 'brightness(0) invert(1)', display: 'block' }} />
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["schedule", `📅 Horaire (${listSchedule.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"]].map(([id, label]) => (
+            {[["parse", "📋 Notes"], ["invoice", `📦 Liste matériel (${invoiceItems.length})`], ["schedule", `📅 Horaire (${listSchedule.length})`], ["catalog", "🗂️ Catalogue"], ["history", `🕐 Historique (${listHistory.length})`], ["margins", "📊 Marges"], ["rapport", "📋 Rapport"]].map(([id, label]) => (
               <button key={id} onClick={() => { setTab(id); if (id === 'history') syncHistory(); if (id === 'catalog') syncCatalog(); if (id === 'schedule') syncSchedule(); }} style={{
                 padding: "8px 18px", background: tab === id ? C.accent : "rgba(255,255,255,0.1)",
                 border: `1px solid ${tab === id ? C.accent : "rgba(255,255,255,0.2)"}`,
@@ -2274,7 +2274,34 @@ export default function App() {
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <span style={{ fontSize: 11, color: C.textLight }}>#{p.code}</span>
                         <span style={{ fontSize: 11, color: C.textLight }}>{p.dim}</span>
-                        <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, background: (CAT_COLORS[p.category] || C.accent) + "22", color: CAT_COLORS[p.category] || C.accent, fontWeight: 600 }}>{p.category}</span>
+                        <div style={{ marginTop: 4, position: 'relative', display: 'inline-block' }}>
+                  <span onClick={() => setEditingCategoryFor(editingCategoryFor === p.code ? null : p.code)}
+                    style={{ cursor: 'pointer', fontSize: 10, padding: '2px 8px', borderRadius: 10,
+                      background: (CAT_COLORS[categoryOverrides[p.code] || p.category] || C.accent) + '22',
+                      color: CAT_COLORS[categoryOverrides[p.code] || p.category] || C.accent, fontWeight: 600 }}>
+                    {categoryOverrides[p.code] || p.category}
+                  </span>
+                  {editingCategoryFor === p.code && (
+                    <div style={{ position: 'fixed', zIndex: 300, background: '#1e293b', border: '1px solid #334155',
+                      borderRadius: 10, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 210 }}>
+                      <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 6, padding: '0 4px' }}>Choisir une catégorie</div>
+                      {[...Object.keys(CAT_COLORS), ...customCategories.map(cc => cc.name)].map(cat => (
+                        <div key={cat} onClick={(e) => { e.stopPropagation(); const upd = { ...categoryOverrides, [p.code]: cat };
+                          setCategoryOverrides(upd); localStorage.setItem('catOverrides', JSON.stringify(upd));
+                          setEditingCategoryFor(null); }}
+                          style={{ cursor: 'pointer', padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                            color: CAT_COLORS[cat] || (customCategories.find(cc => cc.name === cat) || {}).color || '#7c3aed' }}>
+                          {cat}
+                        </div>
+                      ))}
+                      <div onClick={(e) => { e.stopPropagation(); setShowNewCatForm(true); setEditingCategoryFor(null); }}
+                        style={{ cursor: 'pointer', padding: '5px 10px', fontSize: 11, color: '#94a3b8',
+                          borderTop: '1px solid #334155', marginTop: 4 }}>
+                        + Nouvelle catégorie...
+                      </div>
+                    </div>
+                  )}
+                </div>
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
@@ -2372,7 +2399,77 @@ export default function App() {
           );
         })()}
 
-      </div>{/* fin content maxWidth:1200 */}
+      </div>      {/* Rapport tab - desktop */}
+      {tab === "rapport" && (
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 20px' }}>
+          <h2 style={{ color: C.text, fontSize: 22, fontWeight: 700, marginBottom: 20 }}>📋 Rapport hebdomadaire</h2>
+          {rapportLoading ? (
+            <div style={{ textAlign: 'center', padding: 60, color: C.muted }}>Chargement...</div>
+          ) : !rapportData ? (
+            <div style={{ textAlign: 'center', padding: 60, color: C.muted }}>Aucune donnée pour cette semaine.</div>
+          ) : (
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 28 }}>
+                {[
+                  ['Factures émises', rapportData.invoiceCount ?? 0, '#3b82f6'],
+                  ['Revenus', '$' + ((rapportData.totalRevenue ?? 0).toFixed(2)), '#10b981'],
+                  ['Matériaux', '$' + ((rapportData.totalMaterials ?? 0).toFixed(2)), '#f59e0b'],
+                ].map(([label, val, color]) => (
+                  <div key={label} style={{ background: C.card, borderRadius: 12, padding: '20px 24px', border: '1px solid ' + C.border }}>
+                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>{label}</div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+              {rapportData.invoices && rapportData.invoices.length > 0 && (
+                <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, overflow: 'hidden' }}>
+                  <div style={{ padding: '16px 20px', borderBottom: '1px solid ' + C.border, fontWeight: 600, color: C.text }}>Factures de la semaine</div>
+                  {rapportData.invoices.map((inv, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: i < rapportData.invoices.length - 1 ? '1px solid ' + C.border : 'none' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: C.text, fontSize: 14 }}>{inv.client}</div>
+                        <div style={{ fontSize: 12, color: C.muted }}>{inv.date}</div>
+                      </div>
+                      <div style={{ fontWeight: 700, color: '#10b981', fontSize: 16 }}>${inv.total?.toFixed(2)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      {/* New category modal - desktop */}
+      {showNewCatForm && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#1e293b', borderRadius: 16, padding: 28, width: 320, border: '1px solid #334155' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9', marginBottom: 20 }}>Nouvelle catégorie</div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>Nom</div>
+              <input value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', borderRadius: 8, padding: '8px 12px', color: '#f1f5f9', fontSize: 14 }}
+                placeholder="Ex: Électricité" />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>Couleur</div>
+              <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)}
+                style={{ width: 48, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'none' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setShowNewCatForm(false); setNewCatName(''); }}
+                style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: 14 }}>
+                Annuler
+              </button>
+              <button onClick={() => { if (!newCatName.trim()) return; const nc = { name: newCatName.trim(), color: newCatColor }; const upd = [...customCategories, nc]; setCustomCategories(upd); localStorage.setItem('customCats', JSON.stringify(upd)); setShowNewCatForm(false); setNewCatName(''); setNewCatColor('#7c3aed'); }}
+                style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: 'none', background: '#7c3aed', color: 'white', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
+                Créer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {editingCategoryFor !== null && <div onClick={() => setEditingCategoryFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 299 }} />}
+{/* fin content maxWidth:1200 */}
       {/* MODALS HORAIRE - desktop */}
       {showEvForm && <EventFormModal C={C} evForm={evForm} setEvForm={setEvForm} editingEvId={editingEvId} saveEventForm={saveEventForm} onClose={()=>{setShowEvForm(false);setEditingEvId(null);setEvForm(EMPTY_EV_FORM);}} />}
       {sigState.eventId && <SigPadModal C={C} sigState={sigState} event={listSchedule.find(e=>e.id===sigState.eventId)} onClose={()=>setSigState(EMPTY_SIG_STATE)} onSave={(canvasEl)=>saveSig(canvasEl,sigState.eventId)} sigCanvasRef={sigCanvasRef} startSig={startSig} />}
