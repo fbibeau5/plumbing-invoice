@@ -198,6 +198,8 @@ export default function App() {
   const [newCatColor, setNewCatColor] = useState('#7c3aed');
   const [rapportData, setRapportData] = useState(null);
   const [rapportLoading, setRapportLoading] = useState(false);
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [bulkCat, setBulkCat] = useState('');
   const [notesText, setNotesText] = useState(() => localStorage.getItem('notesText') ?? SAMPLE_NOTES);
   useEffect(() => { localStorage.setItem('notesText', notesText); }, [notesText]);
   const [invoiceItems, setInvoiceItems] = useState([]);
@@ -1178,6 +1180,7 @@ export default function App() {
               <button onClick={() => { setShowAddForm(p => !p); setAddError(''); }} style={{ width: '100%', padding: '12px', background: showAddForm ? C.accent : C.card, border: `1px solid ${showAddForm ? C.accent : C.border}`, borderRadius: 10, color: showAddForm ? 'white' : C.accent, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, marginBottom: 12, WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}>
                 {showAddForm ? '✕ Fermer' : '➕ Nouveau produit'}
               </button>
+              <button onClick={() => setShowNewCatForm(true)} style={{ width: '100%', padding: '10px', marginTop: 6, background: 'transparent', border: `1px solid ${C.accent}`, borderRadius: 8, color: C.accent, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, touchAction: 'manipulation' }}>🏷️ Nouvelle catégorie</button>
 
               {/* Formulaire ajout produit - mobile */}
               {showAddForm && (
@@ -1213,7 +1216,18 @@ export default function App() {
 
               <div style={{ fontSize: 11, color: C.textLight, marginBottom: 10 }}>{filtered.length} produits</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {filtered.map(p => {
+                              {selectedItems.size > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: '#0f2a4a', borderRadius: 8, marginBottom: 8, border: '1px solid #3b82f6', flexWrap: 'wrap' }}>
+                  <span style={{ color: '#93c5fd', fontSize: 12, fontWeight: 700, flex: 1, minWidth: 80 }}>{selectedItems.size} sélectionné{selectedItems.size > 1 ? 's' : ''}</span>
+                  <select value={bulkCat} onChange={e => setBulkCat(e.target.value)} style={{ flex: 2, minWidth: 100, padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', borderRadius: 6, color: '#f1f5f9', fontSize: 12 }}>
+                    <option value="">Catégorie...</option>
+                    {[...Object.keys(CAT_COLORS), ...customCategories.map(cc => cc.name)].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                  <button onClick={() => { if (!bulkCat) return; const upd = { ...categoryOverrides }; selectedItems.forEach(code => { upd[code] = bulkCat; }); setCategoryOverrides(upd); localStorage.setItem('catOverrides', JSON.stringify(upd)); setSelectedItems(new Set()); setBulkCat(''); }} style={{ padding: '6px 14px', background: '#3b82f6', border: 'none', borderRadius: 6, color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>OK</button>
+                  <button onClick={() => { setSelectedItems(new Set()); setBulkCat(''); }} style={{ padding: '6px 10px', background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#94a3b8', fontSize: 11, cursor: 'pointer' }}>✕</button>
+                </div>
+              )}
+{filtered.map(p => {
                   const isCustom = !!customProducts[String(p.code)];
                   const isEditing = editingCode === String(p.code);
 
@@ -1264,7 +1278,8 @@ export default function App() {
                   );
 
                   return (
-                    <div key={p.code} style={{ background: C.card, border: `1px solid ${isCustom ? C.accent : C.border}`, borderRadius: 10, padding: '12px 14px' }}>
+                    <div key={p.code} style={{ background: selectedItems.has(String(p.code)) ? '#0f2a4a' : C.card, border: `1px solid ${selectedItems.has(String(p.code)) ? '#3b82f6' : (isCustom ? C.accent : C.border)}`, borderRadius: 10, padding: '12px 14px', position: 'relative' }}>
+                      <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 5, border: selectedItems.has(String(p.code)) ? '2px solid #3b82f6' : '2px solid #475569', background: selectedItems.has(String(p.code)) ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5, flexShrink: 0 }}>{selectedItems.has(String(p.code)) && <span style={{ color: 'white', fontSize: 13, fontWeight: 700, lineHeight: 1 }}>✓</span>}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 2 }}>
@@ -2152,6 +2167,7 @@ export default function App() {
                 borderRadius: 6, color: showAddForm ? "white" : C.accent,
                 cursor: "pointer", fontSize: 13, fontFamily: "inherit", fontWeight: 600
               }}>+ Nouveau produit</button>
+            <button onClick={() => setShowNewCatForm(true)} style={{ padding: "8px 16px", background: "transparent", border: `1px solid ${C.accent}`, borderRadius: 6, color: C.accent, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, fontSize: 13 }}>🏷️ Nouvelle catégorie</button>
             </div>
 
             {/* Add product form */}
@@ -2224,7 +2240,18 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
-              {filtered.map(p => {
+                            {selectedItems.size > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#0f2a4a", borderRadius: 8, marginBottom: 12, border: "1px solid #3b82f6", gridColumn: "1 / -1" }}>
+                  <span style={{ color: "#93c5fd", fontSize: 13, fontWeight: 700, flex: 1 }}>{selectedItems.size} sélectionné{selectedItems.size > 1 ? "s" : ""}</span>
+                  <select value={bulkCat} onChange={e => setBulkCat(e.target.value)} style={{ padding: "6px 10px", background: "#0f172a", border: "1px solid #334155", borderRadius: 6, color: "#f1f5f9", fontSize: 13, minWidth: 160 }}>
+                    <option value="">Catégorie...</option>
+                    {[...Object.keys(CAT_COLORS), ...customCategories.map(cc => cc.name)].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                  <button onClick={() => { if (!bulkCat) return; const upd = { ...categoryOverrides }; selectedItems.forEach(code => { upd[code] = bulkCat; }); setCategoryOverrides(upd); localStorage.setItem("catOverrides", JSON.stringify(upd)); setSelectedItems(new Set()); setBulkCat(""); }} style={{ padding: "6px 18px", background: "#3b82f6", border: "none", borderRadius: 6, color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Appliquer</button>
+                  <button onClick={() => { setSelectedItems(new Set()); setBulkCat(""); }} style={{ padding: "6px 10px", background: "transparent", border: "1px solid #475569", borderRadius: 6, color: "#94a3b8", fontSize: 12, cursor: "pointer" }}>✕</button>
+                </div>
+              )}
+{filtered.map(p => {
                 const isCustom = !!customProducts[String(p.code)];
                 const isEditing = editingCode === String(p.code);
 
@@ -2280,6 +2307,7 @@ export default function App() {
                     padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
                     boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
                   }}>
+                    <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ position: "absolute", top: 8, right: 8, width: 22, height: 22, borderRadius: 5, border: selectedItems.has(String(p.code)) ? "2px solid #3b82f6" : "2px solid #475569", background: selectedItems.has(String(p.code)) ? "#3b82f6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5, flexShrink: 0 }}>{selectedItems.has(String(p.code)) && <span style={{ color: "white", fontSize: 13, fontWeight: 700, lineHeight: 1 }}>✓</span>}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, color: C.text }}>
                         {p.name}
