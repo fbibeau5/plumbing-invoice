@@ -1277,7 +1277,7 @@ export default function App() {
                               {categoryOverrides[p.code] || p.category}
                             </span>
                             {editingCategoryFor === p.code && (
-                              <div style={{ position: 'fixed', zIndex: 300, background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 210 }}>
+                              <div style={{ position: 'fixed', zIndex: 300, background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 210, maxHeight: '60vh', overflowY: 'auto' }}>
                                 <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 6, padding: '0 4px' }}>Choisir une catégorie</div>
                                 {[...Object.keys(CAT_COLORS), ...customCategories.map(cc => cc.name)].map(cat => (
                                   <div key={cat} onClick={(e) => { e.stopPropagation(); const upd = { ...categoryOverrides, [p.code]: cat }; setCategoryOverrides(upd); localStorage.setItem('catOverrides', JSON.stringify(upd)); setEditingCategoryFor(null); }} style={{ cursor: 'pointer', padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, color: CAT_COLORS[cat] || (customCategories.find(cc => cc.name === cat) || {}).color || '#7c3aed' }}>{cat}</div>
@@ -2283,7 +2283,7 @@ export default function App() {
                   </span>
                   {editingCategoryFor === p.code && (
                     <div style={{ position: 'fixed', zIndex: 300, background: '#1e293b', border: '1px solid #334155',
-                      borderRadius: 10, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 210 }}>
+                      borderRadius: 10, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', minWidth: 210, maxHeight: '60vh', overflowY: 'auto' }}>
                       <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 6, padding: '0 4px' }}>Choisir une catégorie</div>
                       {[...Object.keys(CAT_COLORS), ...customCategories.map(cc => cc.name)].map(cat => (
                         <div key={cat} onClick={(e) => { e.stopPropagation(); const upd = { ...categoryOverrides, [p.code]: cat };
