@@ -544,10 +544,13 @@ export default function App() {
         const arr = Object.values(d).filter(v => v && typeof v === 'object' && v.code);
         return arr.length > 0 ? { items: arr } : null;
       };
-      fetch('/api/report-data?key=' + wKey, { method: 'GET' })
-        .then(r => r.json())
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000);
+      fetch('/api/report-data?key=' + wKey, { method: 'GET', signal: ctrl.signal })
+        .then(r => { clearTimeout(timer); return r.json(); })
         .then(d => { setRapportData(normalize(d)); setRapportLoading(false); })
         .catch(() => {
+          clearTimeout(timer);
           try {
             const local = JSON.parse(localStorage.getItem(wKey) || '{}');
             setRapportData(normalize(local));
