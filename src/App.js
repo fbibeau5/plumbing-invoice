@@ -1279,8 +1279,8 @@ export default function App() {
 
                   return (
                     <div key={p.code} style={{ background: selectedItems.has(String(p.code)) ? '#0f2a4a' : C.card, border: `1px solid ${selectedItems.has(String(p.code)) ? '#3b82f6' : (isCustom ? C.accent : C.border)}`, borderRadius: 10, padding: '12px 14px', position: 'relative' }}>
-                      <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 5, border: selectedItems.has(String(p.code)) ? '2px solid #3b82f6' : '2px solid #475569', background: selectedItems.has(String(p.code)) ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5, flexShrink: 0 }}>{selectedItems.has(String(p.code)) && <span style={{ color: 'white', fontSize: 13, fontWeight: 700, lineHeight: 1 }}>✓</span>}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ width: 22, height: 22, borderRadius: 4, border: `2px solid ${selectedItems.has(String(p.code)) ? '#3b82f6' : '#64748b'}`, background: selectedItems.has(String(p.code)) ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>{selectedItems.has(String(p.code)) ? '✓' : ''}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 2 }}>
                             {p.name}
@@ -2307,7 +2307,6 @@ export default function App() {
                     padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
                     boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
                   }}>
-                    <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ position: "absolute", top: 8, right: 8, width: 22, height: 22, borderRadius: 5, border: selectedItems.has(String(p.code)) ? "2px solid #3b82f6" : "2px solid #475569", background: selectedItems.has(String(p.code)) ? "#3b82f6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 5, flexShrink: 0 }}>{selectedItems.has(String(p.code)) && <span style={{ color: "white", fontSize: 13, fontWeight: 700, lineHeight: 1 }}>✓</span>}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, color: C.text }}>
                         {p.name}
@@ -2426,6 +2425,7 @@ export default function App() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {withOverride.map(p => (
                         <div key={p.code} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: C.inputBg, borderRadius: 6, border: `1px solid ${C.border}` }}>
+                              <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ width: 22, height: 22, borderRadius: 4, border: `2px solid ${selectedItems.has(String(p.code)) ? "#3b82f6" : "#64748b"}`, background: selectedItems.has(String(p.code)) ? "#3b82f6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{selectedItems.has(String(p.code)) ? "✓" : ""}</div>
                           <div>
                             <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.name}</span>
                             <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>#{p.code} · {p.category}</span>
