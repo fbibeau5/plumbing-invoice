@@ -2307,6 +2307,7 @@ export default function App() {
                     padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
                     boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
                   }}>
+                    <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ width: 26, height: 26, borderRadius: 6, border: `3px solid ${selectedItems.has(String(p.code)) ? "#3b82f6" : "#94a3b8"}`, background: selectedItems.has(String(p.code)) ? "#3b82f6" : "rgba(255,255,255,0.15)", boxShadow: selectedItems.has(String(p.code)) ? "0 0 8px rgba(59,130,246,0.5)" : "inset 0 0 0 1px rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{selectedItems.has(String(p.code)) ? "✓" : ""}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, color: C.text }}>
                         {p.name}
@@ -2425,7 +2426,6 @@ export default function App() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {withOverride.map(p => (
                         <div key={p.code} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: C.inputBg, borderRadius: 6, border: `1px solid ${C.border}` }}>
-                              <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ width: 26, height: 26, borderRadius: 6, border: `3px solid ${selectedItems.has(String(p.code)) ? "#3b82f6" : "#94a3b8"}`, background: selectedItems.has(String(p.code)) ? "#3b82f6" : "rgba(255,255,255,0.12)", boxShadow: selectedItems.has(String(p.code)) ? "0 0 8px rgba(59,130,246,0.5)" : "inset 0 0 0 1px rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{selectedItems.has(String(p.code)) ? "✓" : ""}</div>
                           <div>
                             <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.name}</span>
                             <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>#{p.code} · {p.category}</span>
