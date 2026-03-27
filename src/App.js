@@ -530,18 +530,31 @@ export default function App() {
   });
 
   // Load rapport data when rapport tab is selected
-  useEffect(() => {
-    if (tab !== 'rapport') return;
-    setRapportLoading(true);
-    const now = new Date();
-    const jan1 = new Date(now.getFullYear(), 0, 1);
-    const week = Math.ceil(((now - jan1) / 86400000 + jan1.getDay() + 1) / 7);
-    const wKey = 'report_' + now.getFullYear() + '_' + String(week).padStart(2, '0');
-    fetch('/api/report-data?key=' + wKey, { method: 'GET' })
-      .then(r => r.json())
-      .then(d => { setRapportData(d || null); setRapportLoading(false); })
-      .catch(() => { setRapportData(null); setRapportLoading(false); });
-  }, [tab]);
+    useEffect(() => {
+      if (tab !== 'rapport') return;
+      setRapportLoading(true);
+      const now = new Date();
+      const jan1 = new Date(now.getFullYear(), 0, 1);
+      const week = Math.ceil(((now - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+      const wKey = 'report_' + now.getFullYear() + '_' + String(week).padStart(2, '0');
+      const normalize = (d) => {
+        if (!d || typeof d !== 'object') return null;
+        if (Array.isArray(d.items)) return d;
+        if (Array.isArray(d)) return { items: d };
+        const arr = Object.values(d).filter(v => v && typeof v === 'object' && v.code);
+        return arr.length > 0 ? { items: arr } : null;
+      };
+      fetch('/api/report-data?key=' + wKey, { method: 'GET' })
+        .then(r => r.json())
+        .then(d => { setRapportData(normalize(d)); setRapportLoading(false); })
+        .catch(() => {
+          try {
+            const local = JSON.parse(localStorage.getItem(wKey) || '{}');
+            setRapportData(normalize(local));
+          } catch(e) { setRapportData(null); }
+          setRapportLoading(false);
+        });
+    }, [tab]);
 
   const saveToWeeklyReport = async () => {
     if (invoiceItems.length === 0) return;
@@ -1589,45 +1602,49 @@ export default function App() {
         {/* RAPPORT TAB */}
         {tab === 'rapport' && (
           <div style={{ padding: '20px 16px', maxWidth: 700, margin: '0 auto' }}>
-            <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 6, color: '#f1f5f9' }}>Rapport hebdomadaire</div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 20 }}>Consultez le rapport de la semaine courante</div>
+            <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 6, color: '#f1f5f9' }}>Liste de réapprovisionnement</div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 20 }}>Items vendus cette semaine — triés par quantité</div>
             {rapportLoading && <div style={{ color: '#94a3b8', textAlign: 'center', padding: 40 }}>Chargement...</div>}
             {!rapportLoading && rapportData && rapportData.items && rapportData.items.length > 0 && (
               <div>
                 <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 140, background: '#0f172a', borderRadius: 10, padding: 16, border: '1px solid #334155' }}>
-                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>FACTURES</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>PRODUITS UNIQUES</div>
                     <div style={{ fontSize: 24, fontWeight: 700, color: '#f1f5f9' }}>{rapportData.items.length}</div>
                   </div>
                   <div style={{ flex: 1, minWidth: 140, background: '#0f172a', borderRadius: 10, padding: 16, border: '1px solid #334155' }}>
-                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>TOTAL HT</div>
-                    <div style={{ fontSize: 24, fontWeight: 700, color: '#10b981' }}>{rapportData.items.reduce((s, inv) => s + (inv.subtotal || 0), 0).toFixed(2)} $</div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 140, background: '#0f172a', borderRadius: 10, padding: 16, border: '1px solid #334155' }}>
-                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>TOTAL TTC</div>
-                    <div style={{ fontSize: 24, fontWeight: 700, color: '#3b82f6' }}>{rapportData.items.reduce((s, inv) => s + (inv.total || 0), 0).toFixed(2)} $</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>QTÉ TOTALE</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: '#3b82f6' }}>{rapportData.items.reduce((s, it) => s + (it.qty || 0), 0)}</div>
                   </div>
                 </div>
-                <div style={{ background: '#0f172a', borderRadius: 10, border: '1px solid #334155', overflow: 'hidden' }}>
-                  {rapportData.items.map((inv, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: i < rapportData.items.length - 1 ? '1px solid #1e293b' : 'none', gap: 12 }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, color: '#f1f5f9', fontSize: 14 }}>{inv.clientName || 'Client inconnu'}</div>
-                        <div style={{ fontSize: 11, color: '#64748b' }}>#{inv.invoiceNumber || inv.id} · {inv.date || ''}</div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 700, color: '#10b981', fontSize: 14 }}>{(inv.total || 0).toFixed(2)} $</div>
+                {(() => {
+                  const sorted = [...rapportData.items].sort((a, b) => (b.qty || 0) - (a.qty || 0));
+                  const cats = {};
+                  sorted.forEach(it => { const c = it.category || 'Autre'; if (!cats[c]) cats[c] = []; cats[c].push(it); });
+                  return Object.entries(cats).map(([cat, items]) => (
+                    <div key={cat} style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>{cat} ({items.length})</div>
+                      <div style={{ background: '#0f172a', borderRadius: 10, border: '1px solid #334155', overflow: 'hidden' }}>
+                        {items.map((it, i) => (
+                          <div key={it.code} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: i < items.length - 1 ? '1px solid #1e293b' : 'none' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9' }}>{it.name}</div>
+                              <div style={{ fontSize: 11, color: '#64748b' }}>#{it.code}{it.dim ? ' · ' + it.dim : ''}</div>
+                            </div>
+                            <div style={{ background: '#1e40af', color: 'white', fontWeight: 700, fontSize: 14, padding: '4px 12px', borderRadius: 8, minWidth: 40, textAlign: 'center' }}>{it.qty}</div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  ));
+                })()}
               </div>
             )}
             {!rapportLoading && (!rapportData || !rapportData.items || rapportData.items.length === 0) && (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: '#475569' }}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>📋</div>
                 <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Aucune donnée cette semaine</div>
-                <div style={{ fontSize: 13 }}>Les factures enregistrées apparaîtront ici automatiquement.</div>
+                <div style={{ fontSize: 13 }}>Ajoutez des factures au rapport depuis l'onglet facture pour voir la liste ici.</div>
               </div>
             )}
           </div>
@@ -2307,7 +2324,6 @@ export default function App() {
                     padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
                     boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
                   }}>
-                    <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ width: 26, height: 26, borderRadius: 6, border: `3px solid ${selectedItems.has(String(p.code)) ? "#3b82f6" : "#94a3b8"}`, background: selectedItems.has(String(p.code)) ? "#3b82f6" : "rgba(255,255,255,0.15)", boxShadow: selectedItems.has(String(p.code)) ? "0 0 8px rgba(59,130,246,0.5)" : "inset 0 0 0 1px rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{selectedItems.has(String(p.code)) ? "✓" : ""}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, color: C.text }}>
                         {p.name}
@@ -2426,6 +2442,7 @@ export default function App() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {withOverride.map(p => (
                         <div key={p.code} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: C.inputBg, borderRadius: 6, border: `1px solid ${C.border}` }}>
+                              <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ width: 26, height: 26, borderRadius: 6, border: `3px solid ${selectedItems.has(String(p.code)) ? "#3b82f6" : "#94a3b8"}`, background: selectedItems.has(String(p.code)) ? "#3b82f6" : "rgba(255,255,255,0.12)", boxShadow: selectedItems.has(String(p.code)) ? "0 0 8px rgba(59,130,246,0.5)" : "inset 0 0 0 1px rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{selectedItems.has(String(p.code)) ? "✓" : ""}</div>
                           <div>
                             <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.name}</span>
                             <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>#{p.code} · {p.category}</span>
@@ -2443,40 +2460,50 @@ export default function App() {
 
       </div>      {/* Rapport tab - desktop */}
       {tab === "rapport" && (
-        <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 20px' }}>
-          <h2 style={{ color: C.text, fontSize: 22, fontWeight: 700, marginBottom: 20 }}>📋 Rapport hebdomadaire</h2>
-          {rapportLoading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: C.muted }}>Chargement...</div>
-          ) : !rapportData ? (
-            <div style={{ textAlign: 'center', padding: 60, color: C.muted }}>Aucune donnée pour cette semaine.</div>
-          ) : (
+        <div style={{ padding: "20px 16px", maxWidth: 900, margin: "0 auto" }}>
+          <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 6, color: "#f1f5f9" }}>Liste de réapprovisionnement</div>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 20 }}>Items vendus cette semaine — triés par quantité</div>
+          {rapportLoading && <div style={{ color: "#94a3b8", textAlign: "center", padding: 40 }}>Chargement...</div>}
+          {!rapportLoading && rapportData && rapportData.items && rapportData.items.length > 0 && (
             <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 28 }}>
-                {[
-                  ['Factures émises', rapportData.invoiceCount ?? 0, '#3b82f6'],
-                  ['Revenus', '$' + ((rapportData.totalRevenue ?? 0).toFixed(2)), '#10b981'],
-                  ['Matériaux', '$' + ((rapportData.totalMaterials ?? 0).toFixed(2)), '#f59e0b'],
-                ].map(([label, val, color]) => (
-                  <div key={label} style={{ background: C.card, borderRadius: 12, padding: '20px 24px', border: '1px solid ' + C.border }}>
-                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>{label}</div>
-                    <div style={{ fontSize: 28, fontWeight: 700, color }}>{val}</div>
-                  </div>
-                ))}
-              </div>
-              {rapportData.invoices && rapportData.invoices.length > 0 && (
-                <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, overflow: 'hidden' }}>
-                  <div style={{ padding: '16px 20px', borderBottom: '1px solid ' + C.border, fontWeight: 600, color: C.text }}>Factures de la semaine</div>
-                  {rapportData.invoices.map((inv, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: i < rapportData.invoices.length - 1 ? '1px solid ' + C.border : 'none' }}>
-                      <div>
-                        <div style={{ fontWeight: 600, color: C.text, fontSize: 14 }}>{inv.client}</div>
-                        <div style={{ fontSize: 12, color: C.muted }}>{inv.date}</div>
-                      </div>
-                      <div style={{ fontWeight: 700, color: '#10b981', fontSize: 16 }}>${inv.total?.toFixed(2)}</div>
-                    </div>
-                  ))}
+              <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 140, background: "#0f172a", borderRadius: 10, padding: 16, border: "1px solid #334155" }}>
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>PRODUITS UNIQUES</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#f1f5f9" }}>{rapportData.items.length}</div>
                 </div>
-              )}
+                <div style={{ flex: 1, minWidth: 140, background: "#0f172a", borderRadius: 10, padding: 16, border: "1px solid #334155" }}>
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>QTÉ TOTALE</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>{rapportData.items.reduce((s, it) => s + (it.qty || 0), 0)}</div>
+                </div>
+              </div>
+              {(() => {
+                const sorted = [...rapportData.items].sort((a, b) => (b.qty || 0) - (a.qty || 0));
+                const cats = {};
+                sorted.forEach(it => { const c = it.category || "Autre"; if (!cats[c]) cats[c] = []; cats[c].push(it); });
+                return Object.entries(cats).map(([cat, items]) => (
+                  <div key={cat} style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{cat} ({items.length})</div>
+                    <div style={{ background: "#0f172a", borderRadius: 10, border: "1px solid #334155", overflow: "hidden" }}>
+                      {items.map((it, i) => (
+                        <div key={it.code} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: i < items.length - 1 ? "1px solid #1e293b" : "none" }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "#f1f5f9" }}>{it.name}</div>
+                            <div style={{ fontSize: 11, color: "#64748b" }}>#{it.code}{it.dim ? " · " + it.dim : ""}</div>
+                          </div>
+                          <div style={{ background: "#1e40af", color: "white", fontWeight: 700, fontSize: 14, padding: "4px 12px", borderRadius: 8, minWidth: 40, textAlign: "center" }}>{it.qty}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+          {!rapportLoading && (!rapportData || !rapportData.items || rapportData.items.length === 0) && (
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#475569" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>📋</div>
+              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Aucune donnée cette semaine</div>
+              <div style={{ fontSize: 13 }}>Ajoutez des factures au rapport depuis l'onglet facture pour voir la liste ici.</div>
             </div>
           )}
         </div>
