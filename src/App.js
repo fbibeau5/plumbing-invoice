@@ -1280,7 +1280,7 @@ export default function App() {
                   return (
                     <div key={p.code} style={{ background: selectedItems.has(String(p.code)) ? '#0f2a4a' : C.card, border: `1px solid ${selectedItems.has(String(p.code)) ? '#3b82f6' : (isCustom ? C.accent : C.border)}`, borderRadius: 10, padding: '12px 14px', position: 'relative' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ width: 22, height: 22, borderRadius: 4, border: `2px solid ${selectedItems.has(String(p.code)) ? '#3b82f6' : '#64748b'}`, background: selectedItems.has(String(p.code)) ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>{selectedItems.has(String(p.code)) ? '✓' : ''}</div>
+                        <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ width: 26, height: 26, borderRadius: 6, border: `3px solid ${selectedItems.has(String(p.code)) ? '#3b82f6' : '#94a3b8'}`, background: selectedItems.has(String(p.code)) ? '#3b82f6' : 'rgba(255,255,255,0.12)', boxShadow: selectedItems.has(String(p.code)) ? '0 0 8px rgba(59,130,246,0.5)' : 'inset 0 0 0 1px rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>{selectedItems.has(String(p.code)) ? '✓' : ''}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 2 }}>
                             {p.name}
@@ -1288,7 +1288,7 @@ export default function App() {
                           </div>
                           <div style={{ fontSize: 11, color: C.textMuted }}>#{p.code} · {p.dim}</div>
                           <div style={{ marginTop: 4, position: 'relative' }}>
-                            <span onClick={() => setEditingCategoryFor(editingCategoryFor === p.code ? null : p.code)} style={{ cursor: 'pointer', color: 'white', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: CAT_COLORS[categoryOverrides[p.code] || p.category] || '#7c3aed', whiteSpace: 'nowrap' }}>
+                            <span onClick={() => setEditingCategoryFor(editingCategoryFor === p.code ? null : p.code)} style={{ cursor: 'pointer', color: 'white', fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.3)', background: CAT_COLORS[categoryOverrides[p.code] || p.category] || '#7c3aed', whiteSpace: 'nowrap' }}>
                               {categoryOverrides[p.code] || p.category}
                             </span>
                           </div>
@@ -2317,7 +2317,7 @@ export default function App() {
                         <span style={{ fontSize: 11, color: C.textLight }}>{p.dim}</span>
                         <div style={{ marginTop: 4, position: 'relative', display: 'inline-block' }}>
                   <span onClick={() => setEditingCategoryFor(editingCategoryFor === p.code ? null : p.code)}
-                    style={{ cursor: 'pointer', fontSize: 10, padding: '2px 8px', borderRadius: 10,
+                    style={{ cursor: 'pointer', fontSize: 10, padding: '3px 10px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.3)',
                       background: (CAT_COLORS[categoryOverrides[p.code] || p.category] || C.accent) + '22',
                       color: CAT_COLORS[categoryOverrides[p.code] || p.category] || C.accent, fontWeight: 600 }}>
                     {categoryOverrides[p.code] || p.category}
@@ -2425,7 +2425,7 @@ export default function App() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {withOverride.map(p => (
                         <div key={p.code} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: C.inputBg, borderRadius: 6, border: `1px solid ${C.border}` }}>
-                              <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ width: 22, height: 22, borderRadius: 4, border: `2px solid ${selectedItems.has(String(p.code)) ? "#3b82f6" : "#64748b"}`, background: selectedItems.has(String(p.code)) ? "#3b82f6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{selectedItems.has(String(p.code)) ? "✓" : ""}</div>
+                              <div onClick={e => { e.stopPropagation(); setSelectedItems(prev => { const n = new Set(prev); n.has(String(p.code)) ? n.delete(String(p.code)) : n.add(String(p.code)); return n; }); }} style={{ width: 26, height: 26, borderRadius: 6, border: `3px solid ${selectedItems.has(String(p.code)) ? "#3b82f6" : "#94a3b8"}`, background: selectedItems.has(String(p.code)) ? "#3b82f6" : "rgba(255,255,255,0.12)", boxShadow: selectedItems.has(String(p.code)) ? "0 0 8px rgba(59,130,246,0.5)" : "inset 0 0 0 1px rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{selectedItems.has(String(p.code)) ? "✓" : ""}</div>
                           <div>
                             <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.name}</span>
                             <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>#{p.code} · {p.category}</span>
