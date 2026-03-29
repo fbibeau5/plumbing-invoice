@@ -22,12 +22,12 @@ export default async function handler(req, res) {
       if (!items || typeof items !== 'object') {
         return res.status(400).json({ error: 'Items invalides' });
       }
-      const existing = await redis.hget(key) || {};
+      const existing = await redis.get(key) || {};
       const merged = { ...existing, ...items };
       await redis.set(key, merged, { ex : 3024000 });
       return res.status(200).json(merged);
     } else {
-      const data = await redis.hget(key);
+      const data = await redis.get(key);
       return res.status(200).json(data || {});
     }
   } catch (e) {
