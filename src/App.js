@@ -1605,7 +1605,10 @@ export default function App() {
         {/* RAPPORT TAB */}
         {tab === 'rapport' && (
           <div style={{ padding: '20px 16px', maxWidth: 700, margin: '0 auto' }}>
-            <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 6, color: '#f1f5f9' }}>Liste de réapprovisionnement</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <div style={{ fontWeight: 700, fontSize: 22, color: '#f1f5f9' }}>Liste de réapprovisionnement</div>
+              <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#1e40af', border: 'none', borderRadius: 8, color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>🖨️ Imprimer PDF</button>
+            </div>
             <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 20 }}>Items vendus cette semaine — triés par quantité</div>
             {rapportLoading && <div style={{ color: '#94a3b8', textAlign: 'center', padding: 40 }}>Chargement...</div>}
             {!rapportLoading && rapportData && rapportData.items && rapportData.items.length > 0 && (
@@ -2463,7 +2466,10 @@ export default function App() {
       </div>      {/* Rapport tab - desktop */}
       {tab === "rapport" && (
         <div style={{ padding: "20px 16px", maxWidth: 900, margin: "0 auto" }}>
-          <div style={{ fontWeight: 700, fontSize: 22, marginBottom: 6, color: "#f1f5f9" }}>Liste de réapprovisionnement</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <div style={{ fontWeight: 700, fontSize: 22, color: "#f1f5f9" }}>Liste de réapprovisionnement</div>
+            <button onClick={() => window.print()} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1e40af", border: "none", borderRadius: 8, color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>🖨️ Imprimer PDF</button>
+          </div>
           <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 20 }}>Items vendus cette semaine — triés par quantité</div>
           {rapportLoading && <div style={{ color: "#94a3b8", textAlign: "center", padding: 40 }}>Chargement...</div>}
           {!rapportLoading && rapportData && rapportData.items && rapportData.items.length > 0 && (
